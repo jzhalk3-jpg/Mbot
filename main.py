@@ -259,28 +259,62 @@ async def run_auto_join(client, user_id, message):
         return
 
     joined_count = 0
-    for link in list(u["links"]):
-        if not u["is_running"]:
-            break
-        
+    links_queue = u["links"]
+
+    while links_queue and u["is_running"]:
+        link = links_queue[0]
+        success_action_type = None
+
         try:
+            # معالجة أنواع الروابط المختلفة (عام، خاص، أو طلب انضمام)
             if "+" in link or "joinchat" in link:
                 chat_hash = link.split("/")[-1].replace("+", "")
-                await user_client.join_chat(chat_hash)
+                res = await user_client.join_chat(chat_hash)
+                success_action_type = "رابط خاص (تم الانضمام)"
             else:
-                channel_username = link.split("/")[-1]
-                await user_client.join_chat(channel_username)
-            
-            joined_count += 1
-            u["links"].remove(link)
+                target_entity = link.split("/")[-1]
+                try:
+                    res = await user_client.join_chat(target_entity)
+                    success_action_type = "رابط عام / قناة / مجموعة (تم الانضمام)"
+                except Exception as join_err:
+                    # إذا تطلب الرابط طلب انضمام (Join Request)
+                    if "INVITE_REQUEST_SENT" in str(join_err) or "USER_ALREADY_PARTICIPANT" not in str(join_err):
+                        try:
+                            # محاولة إرسال طلب انضمام عبر دالة الـ chat
+                            chat_obj = await user_client.get_chat(target_entity)
+                            await user_client.send(
+                                pyrogram.raw.functions.messages.ImportChatInvite(
+                                    hash=target_entity.replace("+","")
+                                )
+                            ) if "+" in target_entity else None
+                            success_action_type = "تم إرسال طلب الانضمام بنجاح"
+                        except:
+                            # استخدام الانضمام العام أو البحث المتقدم كبديل
+                            inv_req = await user_client.join_chat(target_entity)
+                            success_action_type = "تم إرسال طلب الانضمام"
+                    else:
+                        raise join_err
 
-            # خصم النقاط فقط لو لم يكن المالك وليست عضويته VIP
+            # نجاح العملية: إزالة الرابط من القائمة وخصم النقاط (إن لم يكن مالكاً أو VIP)
+            links_queue.pop(0)
+            joined_count += 1
+
             if user_id != ADMIN_ID and not is_vip(user_id):
                 u["points"] = max(0, u["points"] - 1)
 
+            points_label = "♾️ نقاط مفتوحة (مالك البوت)" if user_id == ADMIN_ID else f"`{u['points']}` نقطة"
+            await message.reply_text(
+                f"✅ **تم بنجاح!**\n"
+                f"📌 النوع: {success_action_type}\n"
+                f"🔗 الرابط: `{link}`\n"
+                f"🎯 نقاطك المتبقية: {points_label}\n"
+                f"📊 الروابط المتبقية في الانتظار: `{len(links_queue)}`",
+                disable_web_page_preview=True
+            )
+
             await asyncio.sleep(delay)
 
-            if joined_count % batch_limit == 0 and len(u["links"]) > 0:
+            if joined_count % batch_limit == 0 and len(links_queue) > 0:
                 await message.reply_text(f"💤 تم الانضمام إلى {joined_count} رابطاً. أخذ استراحة لمدة {cooldown} دقائق...")
                 for _ in range(cooldown * 60):
                     if not u["is_running"]:
@@ -288,15 +322,26 @@ async def run_auto_join(client, user_id, message):
                     await asyncio.sleep(1)
 
         except UserAlreadyParticipant:
-            u["links"].remove(link)
+            links_queue.pop(0)  # الرابط مسجل مسبقاً، نتجاوزه ولا نخصم نقاط
         except FloodWait as fw:
-            await asyncio.sleep(fw.value)
+            wait_seconds = fw.value
+            await message.reply_text(
+                f"⚠️ **تفاجأنا بحظر مؤقت (FloodWait):**\n"
+                f"سأقوم بأخذ استراحة لمدة 5 دقائق وسأعود للمحاولة تلقائياً..."
+            )
+            for _ in range(300):  # استراحة 5 دقائق (300 ثانية)
+                if not u["is_running"]:
+                    break
+                await asyncio.sleep(1)
         except Exception as e:
-            logger.error(f"Join error: {e}")
+            logger.error(f"Join error on {link}: {e}")
+            # فشل الرابط: نتخطاه ولا نخصم أي نقاط
+            links_queue.pop(0)
+            await asyncio.sleep(2)
 
     await user_client.disconnect()
     u["is_running"] = False
-    await message.reply_text(f"🏁 **انتهت عملية الانضمام!**\n📊 إجمالي ما تم الانضمام له: `{joined_count}` رابطاً.", reply_markup=main_reply_keyboard(user_id))
+    await message.reply_text(f"🏁 **انتهت عملية الانضمام!**\n📊 إجمالي ما تم إنجازه بنجاح: `{joined_count}` رابطاً.", reply_markup=main_reply_keyboard(user_id))
 
 
 @bot.on_message(filters.private & ~filters.command(["start", "شحن", "vip"]))
@@ -316,7 +361,7 @@ async def text_handler(client, message):
         "⚡ شحن نقاط مستخدم (سريع)", "💎 تفعيل VIP مستخدم (سريع)"
     ]
 
-    if text_clean in main_buttons and text_clean != "💾 حفظ الروابط المرسلة":
+    if text_clean in main_buttons and text_clean not in ["💾 حفظ الروابط المرسلة", "🔙 إلغاء والعودة للرئيسية"]:
         if text_clean not in ["🔗 إرسال روابط", "👁️‍🗨️ روابط المستخدمين (للمالك)"]:
             u["step"] = None  
 
@@ -326,12 +371,18 @@ async def text_handler(client, message):
         await message.reply_text("⚠️ البوت متوقف حالياً من قبل المطور للصيانة.")
         return
 
+    # معالجة زر الإلغاء الشامل في أي وقت
+    if text_clean == "🔙 إلغاء والعودة للرئيسية":
+        u["step"] = None
+        u["temp_links_buffer"] = []
+        await message.reply_text("↩️ تم الإلغاء والعودة للقائمة الرئيسية.", reply_markup=main_reply_keyboard(user_id))
+        return
+
     if step:
         if step == "await_broadcast":
             u["step"] = None
             broadcast_msg = message
             success_count = 0
-            fail_count = 0
             
             await message.reply_text("📢 جاري إرسال الإذاعة لجميع المستخدمين...")
             for uid in list(users_db.keys()):
@@ -340,7 +391,7 @@ async def text_handler(client, message):
                     success_count += 1
                     await asyncio.sleep(0.1)
                 except:
-                    fail_count += 1
+                    pass
             
             await message.reply_text(f"📊 تم الإرسال إلى `{success_count}` مستخدماً.", reply_markup=main_reply_keyboard(user_id))
             return
@@ -391,7 +442,7 @@ async def text_handler(client, message):
                         await message.reply_text(f"⚠️ المستخدم `{target_id}` ليس لديه أي روابط مخزنة حالياً.", reply_markup=main_reply_keyboard(user_id))
                     else:
                         txt = f"👁️‍🗨️ **روابط المستخدم (`{target_id}`):** (إجمالي: {len(links_list)})\n\n"
-                        for idx, lk in enumerate(links_list[:30], 1):  # عرض أول 30 رابط لضمان عدم تجاوز حد الرسائل
+                        for idx, lk in enumerate(links_list[:30], 1):
                             txt += f"{idx}. `{lk}`\n"
                         if len(links_list) > 30:
                             txt += f"\n... و {len(links_list) - 30} رابطاً إضافياً."
@@ -455,12 +506,6 @@ async def text_handler(client, message):
             return
 
         elif step == "await_links":
-            if text_clean == "🔙 إلغاء والعودة للرئيسية":
-                u["step"] = None
-                u["temp_links_buffer"] = []
-                await message.reply_text("↩️ تم إلغاء وضع الروابط.", reply_markup=main_reply_keyboard(user_id))
-                return
-            
             if text_clean == "💾 حفظ الروابط المرسلة":
                 u["step"] = None
                 if not u["temp_links_buffer"]:
@@ -487,6 +532,7 @@ async def text_handler(client, message):
                 for lnk in clean_links:
                     if lnk not in u["temp_links_buffer"]:
                         u["temp_links_buffer"].append(lnk)
+                await message.reply_text(f"📥 تم التقاط وتخزين المؤقت ({len(clean_links)}) رابطاً. أرسل المزيد أو اضغط على حفظ:", reply_markup=links_mode_keyboard(user_id))
             return
 
         elif step == "await_delay":
@@ -563,7 +609,7 @@ async def text_handler(client, message):
         for uid in users_db:
             count_cleared += len(users_db[uid]["links"])
             users_db[uid]["links"] = []
-        await message.reply_text(f"🗑️ تم مسح أرشيف الروابط لكل المستخدمين بنجاح (تمتاص صفير `{count_cleared}` رابطاً).", reply_markup=main_reply_keyboard(user_id))
+        await message.reply_text(f"🗑️ تم مسح أرشيف الروابط لكل المستخدمين بنجاح (تم مسح `{count_cleared}` رابطاً).", reply_markup=main_reply_keyboard(user_id))
 
     elif text_clean == "⚡ تشغيل/إيقاف البوت العام":
         if user_id != ADMIN_ID:
