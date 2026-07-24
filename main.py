@@ -80,20 +80,29 @@ def is_vip(user_id):
             pass
     return False
 
+# الأزرار العامة (بدون زر حفظ الروابط لتكون مرتبة)
 def main_reply_keyboard(user_id):
     keyboard = [
         [KeyboardButton("📱 تسجيل الدخول الجديد"), KeyboardButton("🔗 إرسال روابط")],
-        [KeyboardButton("💾 حفظ الروابط المرسلة"), KeyboardButton("🗑️ مسح الروابط")],
-        [KeyboardButton("🚀 بدء الانضمام"), KeyboardButton("🛑 إيقاف الانضمام")],
-        [KeyboardButton("📱 أرقامي المسجلة"), KeyboardButton("🗑️ حذف رقم مسجل")],
-        [KeyboardButton("⏱️ تحديد الوقت"), KeyboardButton("💤 استراحة الروابط")],
-        [KeyboardButton("📊 حالة النظام"), KeyboardButton("🎯 شحن نقاطك")],
-        [KeyboardButton("💎 اشتراك VIP"), KeyboardButton("🎁 كسب النقاط")]
+        [KeyboardButton("🗑️ مسح الروابط"), KeyboardButton("🚀 بدء الانضمام")],
+        [KeyboardButton("🛑 إيقاف الانضمام"), KeyboardButton("📱 أرقامي المسجلة")],
+        [KeyboardButton("🗑️ حذف رقم مسجل"), KeyboardButton("⏱️ تحديد الوقت")],
+        [KeyboardButton("💤 استراحة الروابط"), KeyboardButton("📊 حالة النظام")],
+        [KeyboardButton("🎯 شحن نقاطك"), KeyboardButton("💎 اشتراك VIP")],
+        [KeyboardButton("🎁 كسب النقاط")]
     ]
     if user_id == ADMIN_ID:
         keyboard.append([KeyboardButton("📢 إذاعة عامة"), KeyboardButton("⚡ تشغيل/إيقاف البوت العام")])
         keyboard.append([KeyboardButton("👁️‍🗨️ روابط المستخدمين (للمالك)"), KeyboardButton("🗑️ مسح أرشيف الروابط")])
         
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+# لوحة مؤقتة تظهر فقط عند إرسال الروابط تحتوي على زر الحفظ
+def links_mode_keyboard(user_id):
+    keyboard = [
+        [KeyboardButton("💾 حفظ الروابط المرسلة")],
+        [KeyboardButton("🔙 إلغاء والعودة للرئيسية")]
+    ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 bot = Client("my_ultimate_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -131,19 +140,14 @@ async def start_cmd(client, message):
         await message.reply_text("⚠️ البوت متوقف صيانة حالياً من قبل المطور. يرجى الانتظار.")
         return
 
-    bot_info = await client.get_me()
-    bot_username = bot_info.username
-    ref_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
-
     vip_status_text = "✨ مفعل (بدون خصم نقاط)" if is_vip(user_id) else "❌ غير مشترك"
+    
+    # رسالة ترحيب نظيفة وبسيطة بدون إزعاج ربح النقاط
     await message.reply_text(
-        f"🎯 **مرحباً بك في لوحة تحكم اليوزر بوت!**\n"
+        f"🎯 **مرحباً بك في لوحة تحكم اليوزر بوت!**\n\n"
         f"🆔 الآيدي الخاص بك: `{user_id}`\n"
         f"🎯 نقاطك الحالية: **{u['points']}** نقطة\n"
         f"💎 حالة اشتراك الـ VIP: **{vip_status_text}**\n\n"
-        f"🎁 **ربح النقاط السريع:**\n"
-        f"كل شخص يدخل البوت عبر رابط دعوتك تربح أنت **8 نقاط** فوراً!\n"
-        f"🔗 رابطك الشخصي:\n`{ref_link}`\n\n"
         f"اختر ما تحتاجه من الأزرار أسفل الشاشة:",
         reply_markup=main_reply_keyboard(user_id)
     )
@@ -300,7 +304,7 @@ async def text_handler(client, message):
     text_clean = text.strip()
 
     main_buttons = [
-        "📱 تسجيل الدخول الجديد", "🔗 إرسال روابط", "💾 حفظ الروابط المرسلة", 
+        "📱 تسجيل الدخول الجديد", "🔗 إرسال روابط", "💾 حفظ الروابط المرسلة", "🔙 إلغاء والعودة للرئيسية",
         "🗑️ مسح الروابط", "🚀 بدء الانضمام", "🛑 إيقاف الانضمام", 
         "📱 أرقامي المسجلة", "🗑️ حذف رقم مسجل", "⏱️ تحديد الوقت", 
         "💤 استراحة الروابط", "📊 حالة النظام", "🎯 شحن نقاطك", 
@@ -308,8 +312,9 @@ async def text_handler(client, message):
         "⚡ تشغيل/إيقاف البوت العام", "👁️‍🗨️ روابط المستخدمين (للمالك)", "🗑️ مسح أرشيف الروابط"
     ]
 
-    if text_clean in main_buttons:
-        u["step"] = None  
+    if text_clean in main_buttons and text_clean != "💾 حفظ الروابط المرسلة":
+        if text_clean != "🔗 إرسال روابط":
+            u["step"] = None  
 
     step = u.get("step")
 
@@ -389,14 +394,40 @@ async def text_handler(client, message):
             return
 
         elif step == "await_links":
+            # زر العودة أو الحفظ أثناء وضع الروابط
+            if text_clean == "🔙 إلغاء والعودة للرئيسية":
+                u["step"] = None
+                u["temp_links_buffer"] = []
+                await message.reply_text("↩️ تم إلغاء وضع الروابط.", reply_markup=main_reply_keyboard(user_id))
+                return
+            
+            if text_clean == "💾 حفظ الروابط المرسلة":
+                u["step"] = None
+                if not u["temp_links_buffer"]:
+                    await message.reply_text("⚠️ لم تقم بإرسال أي روابط جديدة لحفظها بعد.", reply_markup=links_mode_keyboard(user_id))
+                    return
+                
+                added_count = 0
+                for lnk in u["temp_links_buffer"]:
+                    if lnk not in u["links"]:
+                        u["links"].append(lnk)
+                        added_count += 1
+                
+                u["temp_links_buffer"] = []
+                await message.reply_text(
+                    f"✅ **تم حفظ الروابط بنجاح!**\n"
+                    f"📥 تم إضافة `{added_count}` رابطاً جديداً لقائمتك.\n"
+                    f"📊 إجمالي روابطك المخزنة الآن: `{len(u['links'])}` رابط.",
+                    reply_markup=main_reply_keyboard(user_id)
+                )
+                return
+
+            # استقبال الروابط بصمت تام بدون أي رسائل مزعجة لكل رسالة
             clean_links = extract_only_links(text, message)
             if clean_links:
                 for lnk in clean_links:
                     if lnk not in u["temp_links_buffer"]:
                         u["temp_links_buffer"].append(lnk)
-                await message.reply_text(f"📥 تم استخراج `{len(clean_links)}` رابط مؤقت. أرسل رسائل أخرى أو اضغط على زر **💾 حفظ الروابط المرسلة** لحفظها نهائياً.")
-            else:
-                await message.reply_text("⚠️ لم يتم العثور على روابط في هذه الرسالة.")
             return
 
         elif step == "await_delay":
@@ -453,10 +484,10 @@ async def text_handler(client, message):
         ref_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
         await message.reply_text(
             f"🎁 **نظام كسب النقاط المجانية:**\n\n"
-            f"كل شخص يدخل عبر رابطك تربح أنت **8 نقاط**!\n"
-            f"👥 عدد من دعوتهم: `{u['referral_count']}`\n"
-            f"🎯 نقاطك: **{u['points']}**\n\n"
-            f"🔗 رابطك:\n`{ref_link}`",
+            f"شارك رابط الدعوة الخاص بك مع أصدقائك، وكل شخص يدخل البوت عبر رابطك **ستربح 8 نقاط فوراً**!\n\n"
+            f"👥 عدد الأشخاص الذين دعوتهم: `{u['referral_count']}` شخصاً\n"
+            f"🎯 رصيدك الحالي: **{u['points']}** نقطة\n\n"
+            f"🔗 **رابط الدعوة الخاص بك:**\n`{ref_link}`",
             reply_markup=main_reply_keyboard(user_id)
         )
 
@@ -477,29 +508,12 @@ async def text_handler(client, message):
     elif text_clean == "🔗 إرسال روابط":
         u["temp_links_buffer"] = []  
         u["step"] = "await_links"
+        # إظهار لوحة التحكم الخاصة بالروابط (يظهر فيها زر الحفظ فقط)
         await message.reply_text(
-            "🔗 **وضع استقبال الروابط مفعل:**\n"
-            "أرسل الآن كل الرسائل أو القوائم التي تحتوي على روابط. وعندما تنتهي، اضغط على زر **💾 حفظ الروابط المرسلة** في الأسفل لتثبيتها وحفظها نهائياً."
-        )
-
-    elif text_clean == "💾 حفظ الروابط المرسلة":
-        u["step"] = None
-        if not u["temp_links_buffer"]:
-            await message.reply_text("⚠️ لم تقم بإرسال أي روابط جديدة لحفظها بعد. اضغط على '🔗 إرسال روابط' أولاً.")
-            return
-        
-        added_count = 0
-        for lnk in u["temp_links_buffer"]:
-            if lnk not in u["links"]:
-                u["links"].append(lnk)
-                added_count += 1
-        
-        u["temp_links_buffer"] = []
-        await message.reply_text(
-            f"✅ **تم حفظ الروابط بنجاح!**\n"
-            f"📥 تم إضافة `{added_count}` رابطاً جديداً لقائمتك.\n"
-            f"📊 إجمالي روابطك المخزنة الآن: `{len(u['links'])}` رابط.",
-            reply_markup=main_reply_keyboard(user_id)
+            "🔗 **وضع استقبال الروابط مفعل بصمت:**\n"
+            "أرسل الآن كل الروابط أو الرسائل التي تريدها دفعة واحدة.\n"
+            "عندما تنتهي تماماً، اضغط على زر **💾 حفظ الروابط المرسلة** بالأسفل.",
+            reply_markup=links_mode_keyboard(user_id)
         )
 
     elif text_clean == "🗑️ مسح الروابط":
@@ -568,7 +582,7 @@ async def text_handler(client, message):
 
     elif text_clean == "🎯 شحن نقاطك":
         await message.reply_text(
-            f"🎯 لشحن نقاطك، قم بدعوة أصدقائك عبر رابط كسب النقاط أو تواصل مع المطور وأرسل له الآيدي الخاص بك (`{user_id}`):\n👉 {OWNER_USERNAME}",
+            f"🎯 لشحن نقاطك، قم بدعوة أصدقائك عبر زر (كسب النقاط) أو تواصل مع المطور وأرسل له الآيدي الخاص بك (`{user_id}`):\n👉 {OWNER_USERNAME}",
             reply_markup=main_reply_keyboard(user_id)
         )
 
