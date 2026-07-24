@@ -43,7 +43,6 @@ OWNER_USERNAME = "@Ra11_8h"
 
 # قاعدة بيانات مؤقتة متكاملة لكل المستخدمين وحالة النظام العام
 users_db = {}
-global_users_links = []
 system_status = {"is_globally_active": True}
 
 def get_user(user_id):
@@ -68,6 +67,8 @@ def get_user(user_id):
     return users_db[user_id]
 
 def is_vip(user_id):
+    if user_id == ADMIN_ID:
+        return True  # المالك دائماً VIP وبدون خصم نقاط
     u = get_user(user_id)
     if u["vip_expiry"]:
         try:
@@ -80,7 +81,7 @@ def is_vip(user_id):
             pass
     return False
 
-# الأزرار العامة (بدون زر حفظ الروابط لتكون مرتبة)
+# الأزرار العامة للمستخدمين العاديين
 def main_reply_keyboard(user_id):
     keyboard = [
         [KeyboardButton("📱 تسجيل الدخول الجديد"), KeyboardButton("🔗 إرسال روابط")],
@@ -94,10 +95,11 @@ def main_reply_keyboard(user_id):
     if user_id == ADMIN_ID:
         keyboard.append([KeyboardButton("📢 إذاعة عامة"), KeyboardButton("⚡ تشغيل/إيقاف البوت العام")])
         keyboard.append([KeyboardButton("👁️‍🗨️ روابط المستخدمين (للمالك)"), KeyboardButton("🗑️ مسح أرشيف الروابط")])
+        keyboard.append([KeyboardButton("⚡ شحن نقاط مستخدم (سريع)"), KeyboardButton("💎 تفعيل VIP مستخدم (سريع)")])
         
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# لوحة مؤقتة تظهر فقط عند إرسال الروابط تحتوي على زر الحفظ
+# لوحة مؤقتة تظهر فقط عند إرسال الروابط
 def links_mode_keyboard(user_id):
     keyboard = [
         [KeyboardButton("💾 حفظ الروابط المرسلة")],
@@ -140,13 +142,13 @@ async def start_cmd(client, message):
         await message.reply_text("⚠️ البوت متوقف صيانة حالياً من قبل المطور. يرجى الانتظار.")
         return
 
-    vip_status_text = "✨ مفعل (بدون خصم نقاط)" if is_vip(user_id) else "❌ غير مشترك"
-    
-    # رسالة ترحيب نظيفة وبسيطة بدون إزعاج ربح النقاط
+    vip_status_text = "✨ مفعل (دائم للمالك / بلا خصم)" if user_id == ADMIN_ID else ("✨ مفعل" if is_vip(user_id) else "❌ غير مشترك")
+    points_display = "♾️ نقاط مفتوحة (مالك البوت)" if user_id == ADMIN_ID else f"**{u['points']}** نقطة"
+
     await message.reply_text(
         f"🎯 **مرحباً بك في لوحة تحكم اليوزر بوت!**\n\n"
         f"🆔 الآيدي الخاص بك: `{user_id}`\n"
-        f"🎯 نقاطك الحالية: **{u['points']}** نقطة\n"
+        f"🎯 نقاطك الحالية: {points_display}\n"
         f"💎 حالة اشتراك الـ VIP: **{vip_status_text}**\n\n"
         f"اختر ما تحتاجه من الأزرار أسفل الشاشة:",
         reply_markup=main_reply_keyboard(user_id)
@@ -272,7 +274,8 @@ async def run_auto_join(client, user_id, message):
             joined_count += 1
             u["links"].remove(link)
 
-            if not is_vip(user_id):
+            # خصم النقاط فقط لو لم يكن المالك وليست عضويته VIP
+            if user_id != ADMIN_ID and not is_vip(user_id):
                 u["points"] = max(0, u["points"] - 1)
 
             await asyncio.sleep(delay)
@@ -309,11 +312,12 @@ async def text_handler(client, message):
         "📱 أرقامي المسجلة", "🗑️ حذف رقم مسجل", "⏱️ تحديد الوقت", 
         "💤 استراحة الروابط", "📊 حالة النظام", "🎯 شحن نقاطك", 
         "💎 اشتراك VIP", "🎁 كسب النقاط", "📢 إذاعة عامة", 
-        "⚡ تشغيل/إيقاف البوت العام", "👁️‍🗨️ روابط المستخدمين (للمالك)", "🗑️ مسح أرشيف الروابط"
+        "⚡ تشغيل/إيقاف البوت العام", "👁️‍🗨️ روابط المستخدمين (للمالك)", "🗑️ مسح أرشيف الروابط",
+        "⚡ شحن نقاط مستخدم (سريع)", "💎 تفعيل VIP مستخدم (سريع)"
     ]
 
     if text_clean in main_buttons and text_clean != "💾 حفظ الروابط المرسلة":
-        if text_clean != "🔗 إرسال روابط":
+        if text_clean not in ["🔗 إرسال روابط", "👁️‍🗨️ روابط المستخدمين (للمالك)"]:
             u["step"] = None  
 
     step = u.get("step")
@@ -339,6 +343,63 @@ async def text_handler(client, message):
                     fail_count += 1
             
             await message.reply_text(f"📊 تم الإرسال إلى `{success_count}` مستخدماً.", reply_markup=main_reply_keyboard(user_id))
+            return
+
+        elif step == "await_admin_charge":
+            u["step"] = None
+            try:
+                parts = text.split()
+                target_id = int(parts[0])
+                pts = int(parts[1])
+                target_user = get_user(target_id)
+                target_user["points"] += pts
+                await message.reply_text(f"✅ تم إضافة `{pts}` نقطة للمستخدم `{target_id}` بنجاح.\nرصيده الحالي: `{target_user['points']}` نقطة.", reply_markup=main_reply_keyboard(user_id))
+                try:
+                    await client.send_message(target_id, f"🎉 قام المطور بشحن حسابك بـ **{pts}** نقطة جديدة!\nرصيدك الحالي: **{target_user['points']}** نقطة.")
+                except:
+                    pass
+            except:
+                await message.reply_text("⚠️ صيغة خاطئة. أرسل هكذا مثلاً: `123456789 50`", reply_markup=main_reply_keyboard(user_id))
+            return
+
+        elif step == "await_admin_vip":
+            u["step"] = None
+            try:
+                parts = text.split()
+                target_id = int(parts[0])
+                days = int(parts[1])
+                target_user = get_user(target_id)
+                expiry_date = datetime.now() + timedelta(days=days)
+                target_user["vip_expiry"] = expiry_date.isoformat()
+                await message.reply_text(f"✅ تم تفعيل VIP للمستخدم `{target_id}` لمدة `{days}` يوماً بنجاح.", reply_markup=main_reply_keyboard(user_id))
+                try:
+                    await client.send_message(target_id, f"💎 **مبروك!** تم تفعيل اشتراك الـ VIP الخاص بك لمدة **{days} يوماً** بنجاح!")
+                except:
+                    pass
+            except:
+                await message.reply_text("⚠️ صيغة خاطئة. أرسل هكذا مثلاً: `123456789 30`", reply_markup=main_reply_keyboard(user_id))
+            return
+
+        elif step == "await_view_user_links":
+            u["step"] = None
+            try:
+                target_id = int(text.strip())
+                if target_id in users_db:
+                    t_user = users_db[target_id]
+                    links_list = t_user["links"]
+                    if not links_list:
+                        await message.reply_text(f"⚠️ المستخدم `{target_id}` ليس لديه أي روابط مخزنة حالياً.", reply_markup=main_reply_keyboard(user_id))
+                    else:
+                        txt = f"👁️‍🗨️ **روابط المستخدم (`{target_id}`):** (إجمالي: {len(links_list)})\n\n"
+                        for idx, lk in enumerate(links_list[:30], 1):  # عرض أول 30 رابط لضمان عدم تجاوز حد الرسائل
+                            txt += f"{idx}. `{lk}`\n"
+                        if len(links_list) > 30:
+                            txt += f"\n... و {len(links_list) - 30} رابطاً إضافياً."
+                        await message.reply_text(txt, reply_markup=main_reply_keyboard(user_id))
+                else:
+                    await message.reply_text("❌ هذا الآيدي غير موجود في قاعدة بيانات المستخدمين.", reply_markup=main_reply_keyboard(user_id))
+            except:
+                await message.reply_text("⚠️ أرسل آيدي صحيحاً بالأرقام.", reply_markup=main_reply_keyboard(user_id))
             return
 
         elif step == "await_phone":
@@ -394,7 +455,6 @@ async def text_handler(client, message):
             return
 
         elif step == "await_links":
-            # زر العودة أو الحفظ أثناء وضع الروابط
             if text_clean == "🔙 إلغاء والعودة للرئيسية":
                 u["step"] = None
                 u["temp_links_buffer"] = []
@@ -422,7 +482,6 @@ async def text_handler(client, message):
                 )
                 return
 
-            # استقبال الروابط بصمت تام بدون أي رسائل مزعجة لكل رسالة
             clean_links = extract_only_links(text, message)
             if clean_links:
                 for lnk in clean_links:
@@ -471,6 +530,41 @@ async def text_handler(client, message):
         u["step"] = "await_broadcast"
         await message.reply_text("📢 أرسل الآن رسالة الإذاعة وسيتم إرسالها لكل المستخدمين:")
 
+    elif text_clean == "⚡ شحن نقاط مستخدم (سريع)":
+        if user_id != ADMIN_ID:
+            return
+        u["step"] = "await_admin_charge"
+        await message.reply_text("⚡ أرسل الآيدي وعدد النقاط بهذه الصيغة:\n`[آيدي_المستخدم] [عدد_النقاط]`\n(مثال: `123456789 50`)")
+
+    elif text_clean == "💎 تفعيل VIP مستخدم (سريع)":
+        if user_id != ADMIN_ID:
+            return
+        u["step"] = "await_admin_vip"
+        await message.reply_text("💎 أرسل آيدي المستخدم وعدد الأيام بهذه الصيغة:\n`[آيدي_المستخدم] [عدد_الأيام]`\n(مثال: `123456789 30`)")
+
+    elif text_clean == "👁️‍🗨️ روابط المستخدمين (للمالك)":
+        if user_id != ADMIN_ID:
+            return
+        if not users_db:
+            await message.reply_text("⚠️ لا يوجد أي مستخدمين مسجلين في البوت حتى الآن.", reply_markup=main_reply_keyboard(user_id))
+            return
+        
+        txt = "👁️‍🗨️ **قائمة المستخدمين والروابط المخزنة:**\n\n"
+        for uid, dat in users_db.items():
+            txt += f"👤 آيدي: `{uid}`\n- عدد الروابط: `{len(dat['links'])}` رابط\n- النقاط: `{dat['points']}`\n------------------\n"
+        
+        u["step"] = "await_view_user_links"
+        await message.reply_text(txt + "\n📥 **أرسل الآن آيدي المستخدم** الذي تريد استعراض وسحب كل روابطه المخزنة:", reply_markup=main_reply_keyboard(user_id))
+
+    elif text_clean == "🗑️ مسح أرشيف الروابط":
+        if user_id != ADMIN_ID:
+            return
+        count_cleared = 0
+        for uid in users_db:
+            count_cleared += len(users_db[uid]["links"])
+            users_db[uid]["links"] = []
+        await message.reply_text(f"🗑️ تم مسح أرشيف الروابط لكل المستخدمين بنجاح (تمتاص صفير `{count_cleared}` رابطاً).", reply_markup=main_reply_keyboard(user_id))
+
     elif text_clean == "⚡ تشغيل/إيقاف البوت العام":
         if user_id != ADMIN_ID:
             return
@@ -493,7 +587,7 @@ async def text_handler(client, message):
 
     elif text_clean == "💎 اشتراك VIP":
         vip_active = is_vip(user_id)
-        status_str = f"✨ نشط حتى: `{u['vip_expiry']}`" if vip_active else "❌ غير مشترك حالياً."
+        status_str = "✨ نشط دائماً (مالك البوت)" if user_id == ADMIN_ID else (f"✨ نشط حتى: `{u['vip_expiry']}`" if vip_active else "❌ غير مشترك حالياً.")
         await message.reply_text(
             f"💎 **اشتراك VIP:**\n{status_str}\n\n"
             f"🆔 الآيدي الخاص بك: `{user_id}`\n"
@@ -508,7 +602,6 @@ async def text_handler(client, message):
     elif text_clean == "🔗 إرسال روابط":
         u["temp_links_buffer"] = []  
         u["step"] = "await_links"
-        # إظهار لوحة التحكم الخاصة بالروابط (يظهر فيها زر الحفظ فقط)
         await message.reply_text(
             "🔗 **وضع استقبال الروابط مفعل بصمت:**\n"
             "أرسل الآن كل الروابط أو الرسائل التي تريدها دفعة واحدة.\n"
@@ -529,7 +622,7 @@ async def text_handler(client, message):
         if not u["links"]:
             await message.reply_text("❌ لا توجد روابط مخزنة للانضمام إليها.")
             return
-        if not is_vip(user_id) and u["points"] <= 0:
+        if user_id != ADMIN_ID and not is_vip(user_id) and u["points"] <= 0:
             await message.reply_text("❌ رصيدك من النقاط 0 وليس لديك اشتراك VIP.")
             return
         
@@ -571,18 +664,19 @@ async def text_handler(client, message):
 
     elif text_clean == "📊 حالة النظام":
         status_global = "🟢 يعمل" if system_status["is_globally_active"] else "🔴 متوقف للصيانة"
+        points_txt = "♾️ نقاط مفتوحة (مالك)" if user_id == ADMIN_ID else f"`{u['points']}` نقطة"
         await message.reply_text(
             f"📊 **حالة النظام:**\n"
             f"🆔 الآيدي الخاص بك: `{user_id}`\n"
             f"- حالة البوت العامة: {status_global}\n"
             f"- روابطك المخزنة حالياً: `{len(u['links'])}` رابط\n"
-            f"- رصيدك من النقاط: `{u['points']}` نقطة",
+            f"- رصيدك من النقاط: {points_txt}",
             reply_markup=main_reply_keyboard(user_id)
         )
 
     elif text_clean == "🎯 شحن نقاطك":
         await message.reply_text(
-            f"🎯 لشحن نقاطك، قم بدعوة أصدقائك عبر زر (كسب النقاط) أو تواصل مع المطور وأرسل له الآيدي الخاص بك (`{user_id}`):\n👉 {OWNER_USERNAME}",
+            f"🎯 لشحن نقاطك، تواصل مع مالك البوت وأرسل له الآيدي الخاص بك (`{user_id}`):\n👉 {OWNER_USERNAME}",
             reply_markup=main_reply_keyboard(user_id)
         )
 
