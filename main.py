@@ -303,19 +303,20 @@ async def run_auto_join(client, user_id, message):
                             success_msg_type = "تم إرسال طلب الانضمام بنجاح"
                             joined_successfully = True
                         else:
-                            # إذا واجه رفض أو معلق، يأخذ استراحة تلقائية 5 دقائق (300 ثانية) قبل المحاولة مرة أخرى على نفس الرابط
-                            await message.reply_text(f"⚠️ واجه البوت تعليقاً أو ضغطاً على الرابط. أخذ استراحة تلقائية لمدة 5 دقائق والمحاولة مجدداً...")
-                            for _ in range(300):
+                            # إذا كان ضغط تيليجرام (FloodWait)، نأخذ استراحة 5 دقائق (300 ثانية)
+                            if "FLOOD_WAIT" in err_str:
+                                await message.reply_text(f"⚠️ ضغط من تيليجرام. أخذ استراحة تلقائية لمدة 5 دقائق والمحاولة مجدداً...")
+                                for _ in range(300):
+                                    if not u["is_running"]:
+                                        break
+                                    await asyncio.sleep(1)
                                 if not u["is_running"]:
                                     break
-                                await asyncio.sleep(1)
-                            
-                            if not u["is_running"]:
-                                break
-
-                            chat_obj = await user_client.join_chat(target_entity)
-                            success_msg_type = "تم الانضمام للمجموعة بنجاح"
-                            joined_successfully = True
+                                continue
+                            else:
+                                # أما إذا كان خطأ عادي في الرابط (مثل عدم توفره)، نتجاوزه فوراً لكي لا يتعطل البوت
+                                success_msg_type = f"⚠️ تعذر الانضمام للرابط (تجاوز): {err_str}"
+                                joined_successfully = True
 
             except UserAlreadyParticipant:
                 success_msg_type = "تم الانضمام للمجموعة بنجاح"
@@ -324,12 +325,19 @@ async def run_auto_join(client, user_id, message):
                 await message.reply_text(f"⚠️ ضغط مؤقت من تيليجرام (FloodWait). أخذ استراحة لمدة {fw.value} ثانية والمحاولة تلقائياً...")
                 await asyncio.sleep(fw.value + 2)
             except Exception as e:
-                # إذا حدث أي خطأ معلق آخر، يأخذ استراحة 5 دقائق تلقائياً ويحاول مجدداً
-                await message.reply_text(f"⚠️ حدث تعليق في الرابط. أخذ استراحة تلقائية لمدة 5 دقائق وإعادة المحاولة...")
-                for _ in range(300):
+                err_str = str(e)
+                if "FLOOD_WAIT" in err_str:
+                    await message.reply_text(f"⚠️ ضغط من تيليجرام. أخذ استراحة تلقائية لمدة 5 دقائق وإعادة المحاولة...")
+                    for _ in range(300):
+                        if not u["is_running"]:
+                            break
+                        await asyncio.sleep(1)
                     if not u["is_running"]:
                         break
-                    await asyncio.sleep(1)
+                    continue
+                else:
+                    success_msg_type = f"⚠️ خطأ في الرابط (تم التجاوز): {err_str}"
+                    joined_successfully = True
 
         if not u["is_running"]:
             break
