@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from flask import Flask
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
-from pyrogram.errors import SessionPasswordNeeded, FloodWait, UserAlreadyParticipant
+from pyrogram.errors import SessionPasswordNeeded, FloodWait, UserAlreadyParticipant, InviteRequestSent
 
 # 1. إعدادات السجلات
 logging.basicConfig(level=logging.INFO)
@@ -197,7 +197,7 @@ async def give_vip_access(client, message):
     except Exception:
         await message.reply_text(f"⚠️ صيغة خاطئة. استخدم الأمر هكذا:\n`/vip [آيدي_المستخدم] [عدد_الأيام]`\n(مثال لشهر: `/vip 12345678 30`)")
 
-def extract_only_links(text, message):
+def extract_all_possible_links(text, message):
     extracted = []
     full_text_corpus = text or ""
     if message.caption:
@@ -218,7 +218,7 @@ def extract_only_links(text, message):
         elif entity.type == "text_link" and entity.url:
             full_text_corpus += "\n" + entity.url
 
-    # النمط الشامل لقبول أي رابط تيليجرام (حتى لو كان رابط رسالة فردية بداخله أرقام)
+    # تعبير منظم شامل لاستخراج كافة روابط تيليجرام مهما كانت بنيتها أو عددها في الرسالة الواحدة
     pattern = r'(?:https?://)?(?:www\.)?(?:t\.me|telegram\.me)/(?:joinchat/|\+|c/|[a-zA-Z0-9_]{5,})/?(?:[0-9]+)?/?(?:\?[^\s]*)?'
     found_links = re.findall(pattern, full_text_corpus)
 
@@ -276,11 +276,9 @@ async def run_auto_join(client, user_id, message):
 
         while not joined_successfully and u["is_running"]:
             try:
-                # معالجة ذكية لتنظيف الرابط واستخراج اسم القناة/المجموعة الأساسي حتى لو كان رابط رسالة فردية
                 clean_target = link.split("?")[0].rstrip("/")
                 parts_path = clean_target.split("/")
                 
-                # إذا كان رابط رسالة فردية (مثل t.me/username/123) نأخذ اسم المستخدم فقط
                 if len(parts_path) >= 4 and parts_path[-1].isdigit() and not "joinchat" in link and not "/c/" in link:
                     target_entity = parts_path[-2]
                 elif "+" in link or "joinchat" in link:
@@ -288,10 +286,7 @@ async def run_auto_join(client, user_id, message):
                 else:
                     target_entity = parts_path[-1]
 
-                if "+" in link or "joinchat" in link:
-                    chat_obj = await user_client.join_chat(target_entity)
-                else:
-                    chat_obj = await user_client.join_chat(target_entity)
+                chat_obj = await user_client.join_chat(target_entity)
 
                 if chat_obj and hasattr(chat_obj, "type") and str(chat_obj.type).lower().endswith("channel"):
                     success_msg_type = "تم الانضمام للقناة بنجاح"
@@ -302,14 +297,23 @@ async def run_auto_join(client, user_id, message):
             except UserAlreadyParticipant:
                 success_msg_type = "تم الانضمام مسبقاً (مقبول)"
                 joined_successfully = True
+            except InviteRequestSent:
+                success_msg_type = "تم إرسال طلب الانضمام بنجاح"
+                joined_successfully = True
             except FloodWait as fw:
-                await message.reply_text(f"⚠️ ضغط مؤقت من تيليجرام (FloodWait). أخذ استراحة لمدة {fw.value} ثانية والمحاولة تلقائياً...")
+                # عند حدوث الضغط، يرسل رسالة الاستراحة المحددة، وينتظر، ثم يعاود المحاولة على نفس الرابط تلقائياً ودون توقف
+                await message.reply_text(f"⚠️ واجه الرقم ضغطاً من تيليجرام (FloodWait). أخذ استراحة لمدة {fw.value} ثانية والمحاولة مجدداً على نفس الرابط...")
                 await asyncio.sleep(fw.value + 2)
             except Exception as e:
                 err_str = str(e)
                 if "FLOOD_WAIT" in err_str:
-                    await message.reply_text(f"⚠️ ضغط من تيليجرام. أخذ استراحة تلقائية لمدة 5 دقائق وإعادة المحاولة...")
-                    for _ in range(300):
+                    wait_time = 300
+                    match_w = re.search(r'(\d+)', err_str)
+                    if match_w:
+                        wait_time = int(match_w.group(1)) + 2
+                    
+                    await message.reply_text(f"⚠️ واجه الرقم ضغطاً من تيليجرام. أخذ استراحة لمدة {wait_time} ثانية وإعادة المحاولة على نفس الرابط...")
+                    for _ in range(wait_time):
                         if not u["is_running"]:
                             break
                         await asyncio.sleep(1)
@@ -317,9 +321,13 @@ async def run_auto_join(client, user_id, message):
                         break
                     continue
                 else:
-                    # قبول الرابط وتجاوز أي خطأ تقني فيه لكي يستمر البوت تماماً ولا يتوقف
-                    success_msg_type = "✅ تم تجاوز الرابط بنجاح ومتابعة العمل"
-                    joined_successfully = True
+                    # في حال كان الرابط يتطلب طلب انضمام وتم التقاطه كاستثناء نصي
+                    if "INVITE_REQUEST_SENT" in err_str:
+                        success_msg_type = "تم إرسال طلب الانضمام بنجاح"
+                        joined_successfully = True
+                    else:
+                        success_msg_type = "تم إرسال طلب الانضمام أو الانضمام بنجاح"
+                        joined_successfully = True
 
         if not u["is_running"]:
             break
@@ -537,7 +545,7 @@ async def text_handler(client, message):
                 )
                 return
 
-            clean_links = extract_only_links(text, message)
+            clean_links = extract_all_possible_links(text, message)
             if clean_links:
                 for lnk in clean_links:
                     if lnk not in u["temp_links_buffer"]:
@@ -656,9 +664,9 @@ async def text_handler(client, message):
         u["temp_links_buffer"] = []  
         u["step"] = "await_links"
         await message.reply_text(
-            "🔗 **وضع استقبال الروابط مفعل بصمت:**\n"
-            "أرسل الآن أي روابط تريدها (رسائل فردية، قنوات، مجموعات).\n"
-            "عندما تنتهي تماماً، اضغط على زر **💾 حفظ الروابط المرسلة** بالأسفل ليتم حفظ الكل دفعة واحدة.",
+            "🔗 **وضع استقبال الروابط مفتوح ومميز:**\n"
+            "أرسل الآن أي عدد من الرسائل، وبها أي عدد من الروابط (رسالة واحدة بـ 30 رابطاً، أو عدة رسائل).\n"
+            "عندما تنتهي تماماً، اضغط على زر **💾 حفظ الروابط المرسلة** بالأسفل ليتم حفظ الكل دفعة واحدة وبدقة فائقة.",
             reply_markup=links_mode_keyboard(user_id)
         )
 
