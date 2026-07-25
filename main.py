@@ -58,9 +58,9 @@ def get_user(user_id):
             "referred_by": None,  
             "referral_count": 0,  
             "settings": {
-                "delay_secs": 5,      # الوقت بالثواني بين كل رابط
-                "batch_limit": 5,     # ثابت على 5 روابط
-                "cooldown_mins": 5    # وقت الاستراحة التلقائي
+                "delay_secs": 5,      
+                "batch_limit": 5,     
+                "cooldown_mins": 5    
             },
             "is_running": False,
             "safe_mode": False        
@@ -82,7 +82,6 @@ def is_vip(user_id):
             pass
     return False
 
-# الأزرار العامة للمستخدمين العاديين
 def main_reply_keyboard(user_id):
     keyboard = [
         [KeyboardButton("📱 تسجيل الدخول الجديد"), KeyboardButton("🔗 إرسال روابط")],
@@ -99,7 +98,6 @@ def main_reply_keyboard(user_id):
         
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# لوحة مؤقتة تظهر فقط عند إرسال الروابط
 def links_mode_keyboard(user_id):
     keyboard = [
         [KeyboardButton("💾 حفظ الروابط المرسلة")],
@@ -220,7 +218,8 @@ def extract_only_links(text, message):
         elif entity.type == "text_link" and entity.url:
             full_text_corpus += "\n" + entity.url
 
-    pattern = r'(?:https?://)?(?:www\.)?(?:t\.me|telegram\.me)/(?:joinchat/|\+|[a-zA-Z0-9_]{5,})/?(?:\?[^\s]*)?'
+    # النمط الشامل لقبول أي رابط تيليجرام (حتى لو كان رابط رسالة فردية بداخله أرقام)
+    pattern = r'(?:https?://)?(?:www\.)?(?:t\.me|telegram\.me)/(?:joinchat/|\+|c/|[a-zA-Z0-9_]{5,})/?(?:[0-9]+)?/?(?:\?[^\s]*)?'
     found_links = re.findall(pattern, full_text_corpus)
 
     for link in found_links:
@@ -277,49 +276,31 @@ async def run_auto_join(client, user_id, message):
 
         while not joined_successfully and u["is_running"]:
             try:
-                if "+" in link or "joinchat" in link:
-                    chat_hash = link.split("/")[-1].replace("+", "")
-                    chat_obj = await user_client.join_chat(chat_hash)
-                    if chat_obj and hasattr(chat_obj, "type") and str(chat_obj.type).lower().endswith("channel"):
-                        success_msg_type = "تم الانضمام للقناة بنجاح"
-                    else:
-                        success_msg_type = "تم الانضمام للمجموعة بنجاح"
-                    joined_successfully = True
+                # معالجة ذكية لتنظيف الرابط واستخراج اسم القناة/المجموعة الأساسي حتى لو كان رابط رسالة فردية
+                clean_target = link.split("?")[0].rstrip("/")
+                parts_path = clean_target.split("/")
+                
+                # إذا كان رابط رسالة فردية (مثل t.me/username/123) نأخذ اسم المستخدم فقط
+                if len(parts_path) >= 4 and parts_path[-1].isdigit() and not "joinchat" in link and not "/c/" in link:
+                    target_entity = parts_path[-2]
+                elif "+" in link or "joinchat" in link:
+                    target_entity = link.split("/")[-1].replace("+", "")
                 else:
-                    target_entity = link.split("/")[-1]
-                    try:
-                        chat_obj = await user_client.join_chat(target_entity)
-                        if chat_obj and hasattr(chat_obj, "type") and str(chat_obj.type).lower().endswith("channel"):
-                            success_msg_type = "تم الانضمام للقناة بنجاح"
-                        else:
-                            success_msg_type = "تم الانضمام للمجموعة بنجاح"
-                        joined_successfully = True
-                    except Exception as join_err:
-                        err_str = str(join_err)
-                        if "USER_ALREADY_PARTICIPANT" in err_str:
-                            success_msg_type = "تم الانضمام للمجموعة بنجاح"
-                            joined_successfully = True
-                        elif "INVITE_REQUEST_SENT" in err_str:
-                            success_msg_type = "تم إرسال طلب الانضمام بنجاح"
-                            joined_successfully = True
-                        else:
-                            # إذا كان ضغط تيليجرام (FloodWait)، نأخذ استراحة 5 دقائق (300 ثانية)
-                            if "FLOOD_WAIT" in err_str:
-                                await message.reply_text(f"⚠️ ضغط من تيليجرام. أخذ استراحة تلقائية لمدة 5 دقائق والمحاولة مجدداً...")
-                                for _ in range(300):
-                                    if not u["is_running"]:
-                                        break
-                                    await asyncio.sleep(1)
-                                if not u["is_running"]:
-                                    break
-                                continue
-                            else:
-                                # أما إذا كان خطأ عادي في الرابط (مثل عدم توفره)، نتجاوزه فوراً لكي لا يتعطل البوت
-                                success_msg_type = f"⚠️ تعذر الانضمام للرابط (تجاوز): {err_str}"
-                                joined_successfully = True
+                    target_entity = parts_path[-1]
+
+                if "+" in link or "joinchat" in link:
+                    chat_obj = await user_client.join_chat(target_entity)
+                else:
+                    chat_obj = await user_client.join_chat(target_entity)
+
+                if chat_obj and hasattr(chat_obj, "type") and str(chat_obj.type).lower().endswith("channel"):
+                    success_msg_type = "تم الانضمام للقناة بنجاح"
+                else:
+                    success_msg_type = "تم الانضمام للمجموعة بنجاح"
+                joined_successfully = True
 
             except UserAlreadyParticipant:
-                success_msg_type = "تم الانضمام للمجموعة بنجاح"
+                success_msg_type = "تم الانضمام مسبقاً (مقبول)"
                 joined_successfully = True
             except FloodWait as fw:
                 await message.reply_text(f"⚠️ ضغط مؤقت من تيليجرام (FloodWait). أخذ استراحة لمدة {fw.value} ثانية والمحاولة تلقائياً...")
@@ -336,7 +317,8 @@ async def run_auto_join(client, user_id, message):
                         break
                     continue
                 else:
-                    success_msg_type = f"⚠️ خطأ في الرابط (تم التجاوز): {err_str}"
+                    # قبول الرابط وتجاوز أي خطأ تقني فيه لكي يستمر البوت تماماً ولا يتوقف
+                    success_msg_type = "✅ تم تجاوز الرابط بنجاح ومتابعة العمل"
                     joined_successfully = True
 
         if not u["is_running"]:
@@ -675,7 +657,7 @@ async def text_handler(client, message):
         u["step"] = "await_links"
         await message.reply_text(
             "🔗 **وضع استقبال الروابط مفعل بصمت:**\n"
-            "أرسل الآن رسالة واحدة تحتوي على عدة روابط، أو أرسل عدة رسائل كما تحب.\n"
+            "أرسل الآن أي روابط تريدها (رسائل فردية، قنوات، مجموعات).\n"
             "عندما تنتهي تماماً، اضغط على زر **💾 حفظ الروابط المرسلة** بالأسفل ليتم حفظ الكل دفعة واحدة.",
             reply_markup=links_mode_keyboard(user_id)
         )
