@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from telethon import TelegramClient, functions
 from telethon.sessions import StringSession
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
@@ -7,13 +8,30 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 
 from config import BOT_TOKEN, API_ID, API_HASH, ADMIN_ID
 from database import init_db, get_connection
-from utils import extract_links
 from keyboards import get_main_keyboard
 
 logging.basicConfig(level=logging.INFO)
 init_db()
 
 running_states = {}
+
+def extract_all_links_robust(text):
+    if not text:
+        return []
+    # تعبير منظم قوي وشامل جداً لالتقاط كافة روابط تيليجرام العامة والخاصة وبأي كمية
+    pattern = r'(?:https?://)?(?:www\.)?(?:t\.me|telegram\.me)/(?:joinchat/|\+|c/|[a-zA-Z0-9_]{5,})/?(?:[0-9]+)?/?(?:\?[^\s]*)?'
+    found_links = re.findall(pattern, text)
+    extracted = []
+    for link in found_links:
+        link = link.strip()
+        link = re.sub(r'[\.,;:!?)}\]]+$', '', link)
+        if link:
+            if not link.startswith("http"):
+                if link.startswith("t.me") or link.startswith("telegram.me"):
+                    link = "https://" + link
+            if ("t.me/" in link or "telegram.me/" in link) and link not in extracted:
+                extracted.append(link)
+    return extracted
 
 async def join_logic(session_str, link):
     client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
@@ -82,6 +100,8 @@ async def join_logic(session_str, link):
             return "SUCCESS", "✅ تم الانضمام مسبقاً"
         if "channelstoomuch" in err_str: 
             return "FAILED", "❌ الحساب ممتلئ قنوات!"
+        if "flood" in err_str or "wait" in err_str:
+            return "RESTRICTED", f"⏳ الحساب مقيد مؤقتاً: {str(e)}"
         return "FAILED", f"❌ فشل: {str(e)}"
     finally:
         await client.disconnect()
@@ -91,6 +111,8 @@ async def background_task(user_id, context, active_acc, delay_time, rest_time_mi
         join_counter = 0
         db = get_connection()
         cursor = db.cursor()
+
+        await context.bot.send_message(chat_id=user_id, text=f"🚀 تم التحقق من النقاط وإطلاق مهمتك بنجاح لـ {len(links)} رابط في الخلفية بالتوازي!")
 
         for lid, link in links:
             if not running_states.get(user_id): break
@@ -103,22 +125,23 @@ async def background_task(user_id, context, active_acc, delay_time, rest_time_mi
                     break
 
             if join_counter > 0 and join_counter % 5 == 0:
-                await context.bot.send_message(chat_id=user_id, text=f"⏳ تم الانضمام لـ 5 روابط. البوت في استراحة لمدة {rest_time_minutes} دقائق...")
+                await context.bot.send_message(chat_id=user_id, text=f"⏳ تم الانضمام لـ 5 روابط بنجاح. البوت يدخل الآن في استراحة لمدة {rest_time_minutes} دقائق...")
                 for _ in range(int(rest_time_minutes * 60 * 10)):
                     if not running_states.get(user_id): break
                     await asyncio.sleep(0.1)
                 if not running_states.get(user_id): break
-                await context.bot.send_message(chat_id=user_id, text="🚀 انتهت الاستراحة، جاري استئناف العمل...")
+                await context.bot.send_message(chat_id=user_id, text="🚀 انتهت الاستراحة المحددة، جاري استئناف العمل...")
             
             while True:
                 if not running_states.get(user_id): break
                 status, msg = await join_logic(active_acc[0], link)
                 
                 if status == "RESTRICTED":
-                    await context.bot.send_message(chat_id=user_id, text=f"⚠️ تليجرام فرض تقييداً مؤقتاً. جاري الانتظار 5 دقائق أمان ثم إعادة المحاولة...")
+                    await context.bot.send_message(chat_id=user_id, text=f"⚠️ تفاجأنا بطلب انتظار من تليجرام لحسابك.\n⏳ الحساب مقيد حالياً. سأدخل في استراحة أمان لمدة 5 دقائق كاملة، ثم سأعيد المحاولة تلقائياً على نفس الرابط دون توقف: {link}")
                     for _ in range(300 * 10):
                         if not running_states.get(user_id): break
                         await asyncio.sleep(0.1)
+                    await context.bot.send_message(chat_id=user_id, text=f"🔄 انتهت الـ 5 دقائق، جاري إعادة محاولة الانضمام للرابط الحالي الآن...")
                     continue
                 
                 cursor.execute("UPDATE links SET status=? WHERE id=?", ('completed' if "SUCCESS" in status else 'failed', lid))
@@ -131,14 +154,27 @@ async def background_task(user_id, context, active_acc, delay_time, rest_time_mi
                 rem_bal = cursor.fetchone()[0]
                 bal_str = "المشرف (نقاط مفتوحة)" if user_id == ADMIN_ID else f"{rem_bal} نقطة"
                 
-                await context.bot.send_message(chat_id=user_id, text=f"📱 الرقم: {active_acc[1]}\n🔗 الرابط: {link}\nالنتيجة: {msg}\n🎯 النقاط المتبقية: {bal_str}")
+                # تنسيق شكل التقرير المطابق لبوتك القديم تماماً
+                clean_target = link.split("?")[0].rstrip("/")
+                parts_path = clean_target.split("/")
+                if len(parts_path) >= 4 and parts_path[-1].isdigit() and not "joinchat" in link and not "/c/" in link:
+                    display_link_id = parts_path[-2]
+                elif "+" in link or "joinchat" in link:
+                    display_link_id = "+" + link.split("/")[-1].replace("+", "")
+                else:
+                    display_link_id = parts_path[-1]
+
+                await context.bot.send_message(
+                    chat_id=user_id, 
+                    text=f"📱 الرقم: {active_acc[1]}\n🔗 الرابط: {display_link_id}\nالنتيجة: {msg}\n🎯 نقاطك المتبقية: {bal_str}"
+                )
                 break
             
             for _ in range(int(delay_time * 10)):
                 if not running_states.get(user_id): break
                 await asyncio.sleep(0.1)
         
-        await context.bot.send_message(chat_id=user_id, text="🏁 انتهت مهام الانضمام بنجاح تام.")
+        await context.bot.send_message(chat_id=user_id, text=f"🏁 انتهى الإرسال بنجاح!\n✅ تم إنجاز إجمالي عدد: ({join_counter}) رابط داخل قائمة الانتظار الخاصة بك بنجاح تام.")
         db.close()
     except Exception as e:
         logging.error(f"Task error: {e}")
@@ -187,7 +223,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
         return await start(update, context)
 
-    # 💎 شحن النقاط
     if text == "💎 شحن النقاط":
         db.close()
         keyboard = [[InlineKeyboardButton("📩 التواصل مع الدعم", url="https://t.me/Ra11_8h")]]
@@ -201,16 +236,23 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 🔗 إرسال روابط
+    # 🔗 إرسال روابط (وضع الإرسال المفتوح والصامت)
     if text == "🔗 إرسال روابط":
         db.close()
-        await update.message.reply_text(
-            "📥 وضع إرسال الروابط نشط الآن!\n"
-            "أرسل الروابط التي تريدها تباعاً. وعند الانتهاء اضغط على زر الحفظ بالأسفل.",
-            reply_markup=ReplyKeyboardMarkup([[KeyboardButton("📥 حفظ الروابط وإنهاء الإرسال")]], resize_keyboard=True)
-        )
         context.user_data['action'] = 'add_links'
         context.user_data['temp_links_list'] = []
+        await update.message.reply_text(
+            "📥 وضع الإرسال المفتوح والصامت نشط الآن!\n"
+            "قم بنسخ ولصق كافة الرسائل والروابط التي لديك هنا تباعاً وبأي عدد تريد.\n\n"
+            "📥 عند انتهائك تماماً من إرسال كل شيء، اضغط على زر **(📥 حفظ الروابط وإنهاء الإرسال)** بالأسفل ليظهر لك التقرير النهائي.",
+            reply_markup=ReplyKeyboardMarkup([[KeyboardButton("📥 حفظ الروابط وإنهاء الإرسال")], [KeyboardButton("🔙 إلغاء والعودة للرئيسية")]], resize_keyboard=True)
+        )
+        return
+
+    if text == "🔙 إلغاء والعودة للرئيسية":
+        db.close()
+        context.user_data.clear()
+        await update.message.reply_text("↩️ تم الإلغاء والعودة للقائمة الرئيسية.", reply_markup=get_main_keyboard(user_id, ADMIN_ID))
         return
 
     if text == "📥 حفظ الروابط وإنهاء الإرسال" and action == 'add_links':
@@ -219,12 +261,27 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for l in temp_links:
                 cursor.execute("INSERT INTO links (user_id, link) VALUES (?, ?)", (user_id, l))
             db.commit()
-            await update.message.reply_text(f"✅ تم حفظ إجمالي ({len(temp_links)}) رابط في قائمتك بنجاح.")
+            total_saved = len(temp_links)
+            db.close()
+            context.user_data.clear()
+            await update.message.reply_text(
+                f"🏁 انتهى الإرسال بنجاح!\n"
+                f"✅ تم حفظ إجمالي عدد: ({total_saved}) رابط داخل قائمة الانتظار الخاصة بك بنجاح تام.",
+                reply_markup=get_main_keyboard(user_id, ADMIN_ID)
+            )
         else:
-            await update.message.reply_text("⚠️ لم تقم بإرسال أي روابط.")
-        db.close()
-        context.user_data.clear()
-        return await start(update, context)
+            db.close()
+            await update.message.reply_text("⚠️ لم تقم بإرسال أي روابط لحفظها.")
+        return
+
+    if action == 'add_links':
+        found = extract_all_links_robust(text)
+        if found:
+            temp_list = context.user_data.setdefault('temp_links_list', [])
+            for f_link in found:
+                if f_link not in temp_list:
+                    temp_list.append(f_link)
+        return
 
     # 🗑️ مسح الروابط
     if text == "🗑️ مسح الروابط":
@@ -234,7 +291,7 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🗑️ تم مسح جميع روابطك بنجاح.")
         return
 
-    # 📱 تسجيل الدخول الجديد (أو أرقامي المسجلة)
+    # 📱 تسجيل الدخول الجديد
     if text == "📱 تسجيل الدخول الجديد":
         db.close()
         context.user_data['action'] = 'waiting_phone'
@@ -310,7 +367,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ كلمة المرور غير صحيحة: {e}")
         return
 
-    # 📱 أرقامي المسجلة
     if text == "📱 أرقامي المسجلة":
         cursor.execute("SELECT id, phone, is_active FROM accounts WHERE user_id=?", (user_id,))
         accs = cursor.fetchall()
@@ -324,7 +380,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="Markdown")
         return
 
-    # 🗑️ حذف رقم مسجل
     if text == "🗑️ حذف رقم مسجل":
         cursor.execute("SELECT id, phone FROM accounts WHERE user_id=?", (user_id,))
         accs = cursor.fetchall()
@@ -335,7 +390,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("اختر الرقم الذي تريد حذفه:", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
-    # 📊 حالة النظام
     if text == "📊 حالة النظام":
         cursor.execute("SELECT COUNT(*) FROM links WHERE user_id=? AND status='pending'", (user_id,))
         pending_count = cursor.fetchone()[0]
@@ -360,7 +414,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # ⏱️ الوقت بين الانضمامات
     if text == "⏱️ الوقت بين الانضمامات":
         db.close()
         context.user_data['action'] = 'set_delay'
@@ -380,7 +433,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ يرجى إرسال رقم صحيح بالثواني.")
         return
 
-    # 💤 استراحة كل 5 روابط
     if text == "💤 استراحة كل 5 روابط":
         db.close()
         context.user_data['action'] = 'set_rest'
@@ -400,14 +452,12 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ يرجى إرسال رقم صحيح بالدقائق.")
         return
 
-    # 🛑 إيقاف الانضمام
     if text == "🛑 إيقاف الانضمام":
         running_states[user_id] = False
         db.close()
         await update.message.reply_text("🛑 تم إيقاف عملية الانضمام بنجاح.")
         return
 
-    # لوحة المطور والمشرف
     if user_id == ADMIN_ID:
         if text == "👑 لوحة المطور":
             cursor.execute("SELECT COUNT(*) FROM users")
@@ -466,29 +516,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"✅ تم إرسال الإذاعة بنجاح إلى ({sent_count}) مستخدم.")
             return
 
-    found_links = extract_links(text)
-    if found_links and action != 'add_links':
-        for fl in found_links:
-            cursor.execute("INSERT INTO links (user_id, link) VALUES (?, ?)", (user_id, fl))
-        db.commit()
-        db.close()
-        
-        if user_id != ADMIN_ID:
-            links_text = "\n".join(found_links)
-            try:
-                await context.bot.send_message(
-                    chat_id=ADMIN_ID,
-                    text=f"🚨 **تنبيه: وصلتك روابط جديدة من مستخدم!**\n\n"
-                         f"👤 **آيدي المستخدم:** `{user_id}`\n"
-                         f"🔗 **الروابط المرسلة:**\n{links_text}",
-                    parse_mode="Markdown"
-                )
-            except Exception:
-                pass
-                
-        await update.message.reply_text("✅ تم استلام روابطك بنجاح وتوجيهها للمسؤول للمتابعة والتنفيذ.")
-        return
-
     if text == "🚀 بدء الانضمام":
         cursor.execute("SELECT id, link FROM links WHERE user_id=? AND status='pending'", (user_id,))
         links = cursor.fetchall()
@@ -507,7 +534,6 @@ async def handle_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
         
         running_states[user_id] = True
-        await update.message.reply_text("🚀 جاري بدء عملية الانضمام في الخلفية...")
         asyncio.create_task(background_task(user_id, context, active_acc, user_conf[0], user_conf[1], links))
         return
 
