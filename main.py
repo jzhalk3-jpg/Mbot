@@ -58,9 +58,9 @@ def get_user(user_id):
             "referred_by": None,  
             "referral_count": 0,  
             "settings": {
-                "delay_min": 8,       
-                "batch_limit": 5,     
-                "cooldown_mins": 5    
+                "delay_secs": 5,      # الوقت بالثواني بين كل رابط
+                "batch_limit": 5,     # ثابت على 5 روابط
+                "cooldown_mins": 5    # وقت الاستراحة التلقائي
             },
             "is_running": False,
             "safe_mode": False        
@@ -88,7 +88,7 @@ def main_reply_keyboard(user_id):
         [KeyboardButton("📱 تسجيل الدخول الجديد"), KeyboardButton("🔗 إرسال روابط")],
         [KeyboardButton("🗑️ مسح الروابط"), KeyboardButton("🚀 بدء الانضمام"), KeyboardButton("🛡️ انضمام ذكي وآمن (حماية الحظر)")],
         [KeyboardButton("🛑 إيقاف الانضمام"), KeyboardButton("📱 أرقامي المسجلة")],
-        [KeyboardButton("🗑️ حذف رقم مسجل"), KeyboardButton("⏱️ تحديد وقت الاستراحة")],
+        [KeyboardButton("🗑️ حذف رقم مسجل"), KeyboardButton("⏱️ تحديد وقت الثواني بين الروابط"), KeyboardButton("⏱️ تحديد وقت الاستراحة")],
         [KeyboardButton("📊 حالة النظام"), KeyboardButton("🎯 شحن نقاطك")],
         [KeyboardButton("💎 اشتراك VIP"), KeyboardButton("🎁 كسب النقاط")]
     ]
@@ -245,7 +245,7 @@ async def run_auto_join(client, user_id, message):
         batch_limit = 5 
         cooldown = 6    
     else:
-        delay = u["settings"]["delay_min"]
+        delay = u["settings"]["delay_secs"]  
         batch_limit = 5 
         cooldown = u["settings"]["cooldown_mins"]
 
@@ -275,13 +275,11 @@ async def run_auto_join(client, user_id, message):
         success_msg_type = None
         joined_successfully = False
 
-        # حلقة تكرار ذكية للتعامل مع التعليق ومحاولة الانضمام حتى ينجح الرابط تماماً
         while not joined_successfully and u["is_running"]:
             try:
                 if "+" in link or "joinchat" in link:
                     chat_hash = link.split("/")[-1].replace("+", "")
                     chat_obj = await user_client.join_chat(chat_hash)
-                    # فحص ما إذا كانت مجموعة أو قناة بناءً على نوع الـ chat
                     if chat_obj and hasattr(chat_obj, "type") and str(chat_obj.type).lower().endswith("channel"):
                         success_msg_type = "تم الانضمام للقناة بنجاح"
                     else:
@@ -299,20 +297,25 @@ async def run_auto_join(client, user_id, message):
                     except Exception as join_err:
                         err_str = str(join_err)
                         if "USER_ALREADY_PARTICIPANT" in err_str:
-                            success_msg_type = "تم الانضمام للمجموعة بنجاح (أنت مشارك مسبقاً)"
+                            success_msg_type = "تم الانضمام للمجموعة بنجاح"
                             joined_successfully = True
                         elif "INVITE_REQUEST_SENT" in err_str:
                             success_msg_type = "تم إرسال طلب الانضمام بنجاح"
                             joined_successfully = True
                         else:
-                            # إذا واجه أي تعليق أو ضغط، يأخذ استراحة تلقائية قصيرة ويعيد المحاولة على نفس الرابط حتى يضبط
-                            await asyncio.sleep(5)
-                            try:
-                                chat_obj = await user_client.join_chat(target_entity)
-                                success_msg_type = "تم الانضمام للمجموعة بنجاح"
-                                joined_successfully = True
-                            except Exception:
-                                raise join_err
+                            # إذا واجه رفض أو معلق، يأخذ استراحة تلقائية 5 دقائق (300 ثانية) قبل المحاولة مرة أخرى على نفس الرابط
+                            await message.reply_text(f"⚠️ واجه البوت تعليقاً أو ضغطاً على الرابط. أخذ استراحة تلقائية لمدة 5 دقائق والمحاولة مجدداً...")
+                            for _ in range(300):
+                                if not u["is_running"]:
+                                    break
+                                await asyncio.sleep(1)
+                            
+                            if not u["is_running"]:
+                                break
+
+                            chat_obj = await user_client.join_chat(target_entity)
+                            success_msg_type = "تم الانضمام للمجموعة بنجاح"
+                            joined_successfully = True
 
             except UserAlreadyParticipant:
                 success_msg_type = "تم الانضمام للمجموعة بنجاح"
@@ -321,13 +324,16 @@ async def run_auto_join(client, user_id, message):
                 await message.reply_text(f"⚠️ ضغط مؤقت من تيليجرام (FloodWait). أخذ استراحة لمدة {fw.value} ثانية والمحاولة تلقائياً...")
                 await asyncio.sleep(fw.value + 2)
             except Exception as e:
-                # إذا حدث خطأ معلق، البوت يستريح قليلاً ويعيد المحاولة على نفس الرابط ولا يتخطاه أبداً حتى ينجح
-                await asyncio.sleep(6)
+                # إذا حدث أي خطأ معلق آخر، يأخذ استراحة 5 دقائق تلقائياً ويحاول مجدداً
+                await message.reply_text(f"⚠️ حدث تعليق في الرابط. أخذ استراحة تلقائية لمدة 5 دقائق وإعادة المحاولة...")
+                for _ in range(300):
+                    if not u["is_running"]:
+                        break
+                    await asyncio.sleep(1)
 
         if not u["is_running"]:
             break
 
-        # بعد التأكد تماماً من النجاح، نقوم بإزالة الرابط من القائمة
         links_queue.pop(0)
         joined_count += 1
 
@@ -343,7 +349,10 @@ async def run_auto_join(client, user_id, message):
             disable_web_page_preview=True
         )
 
-        await asyncio.sleep(delay)
+        for _ in range(delay):
+            if not u["is_running"]:
+                break
+            await asyncio.sleep(1)
 
         if joined_count % batch_limit == 0 and len(links_queue) > 0:
             await message.reply_text(f"💤 تم الانضمام إلى {joined_count} رابطاً. أخذ استراحة لمدة {cooldown} دقائق لحماية الرقم...")
@@ -367,7 +376,7 @@ async def text_handler(client, message):
     main_buttons = [
         "📱 تسجيل الدخول الجديد", "🔗 إرسال روابط", "💾 حفظ الروابط المرسلة", "🔙 إلغاء والعودة للرئيسية",
         "🗑️ مسح الروابط", "🚀 بدء الانضمام", "🛡️ انضمام ذكي وآمن (حماية الحظر)", "🛑 إيقاف الانضمام", 
-        "📱 أرقامي المسجلة", "🗑️ حذف رقم مسجل", "⏱️ تحديد وقت الاستراحة", 
+        "📱 أرقامي المسجلة", "🗑️ حذف رقم مسجل", "⏱️ تحديد وقت الثواني بين الروابط", "⏱️ تحديد وقت الاستراحة", 
         "📊 حالة النظام", "🎯 شحن نقاطك", "💎 اشتراك VIP", "🎁 كسب النقاط", 
         "📢 إذاعة عامة", "⚡ تشغيل/إيقاف البوت العام", "👁️‍🗨️ روابط المستخدمين (للمالك)", "🗑️ مسح أرشيف الروابط",
         "⚡ شحن نقاط مستخدم (سريع)", "💎 تفعيل VIP مستخدم (سريع)"
@@ -538,12 +547,21 @@ async def text_handler(client, message):
                 )
                 return
 
-            # تخزين الروابط في الذاكرة المؤقتة بصمت تام بدون أي إزعاج أو ردود متكررة
             clean_links = extract_only_links(text, message)
             if clean_links:
                 for lnk in clean_links:
                     if lnk not in u["temp_links_buffer"]:
                         u["temp_links_buffer"].append(lnk)
+            return
+
+        elif step == "await_delay_secs":
+            u["step"] = None
+            try:
+                delay_s = int(text.strip())
+                u["settings"]["delay_secs"] = delay_s
+                await message.reply_text(f"✅ تم تحديد وقت الانتظار بين كل رابط بـ `{delay_s}` ثوانٍ بنجاح.", reply_markup=main_reply_keyboard(user_id))
+            except:
+                await message.reply_text("⚠️ أرسل رقماً صحيحاً يمثل عدد الثواني (مثال: `5`).", reply_markup=main_reply_keyboard(user_id))
             return
 
         elif step == "await_cooldown_only":
@@ -649,8 +667,8 @@ async def text_handler(client, message):
         u["step"] = "await_links"
         await message.reply_text(
             "🔗 **وضع استقبال الروابط مفعل بصمت:**\n"
-            "أرسل الآن كل الروابط أو الرسائل التي تريدها دفعة واحدة بدون أي ردود مزعجة.\n"
-            "عندما تنتهي تماماً، اضغط على زر **💾 حفظ الروابط المرسلة** بالأسفل لحفظها دفعة واحدة.",
+            "أرسل الآن رسالة واحدة تحتوي على عدة روابط، أو أرسل عدة رسائل كما تحب.\n"
+            "عندما تنتهي تماماً، اضغط على زر **💾 حفظ الروابط المرسلة** بالأسفل ليتم حفظ الكل دفعة واحدة.",
             reply_markup=links_mode_keyboard(user_id)
         )
 
@@ -716,6 +734,10 @@ async def text_handler(client, message):
             for phone in u["sessions"].keys():
                 txt += f"🔹 `{phone}`\n"
             await message.reply_text(txt)
+
+    elif text_clean == "⏱️ تحديد وقت الثواني بين الروابط":
+        u["step"] = "await_delay_secs"
+        await message.reply_text("⏱️ أرسل الآن **عدد الثواني** التي تريدها بين كل رابط والرابط الذي يليه (مثال: `5`):")
 
     elif text_clean == "⏱️ تحديد وقت الاستراحة":
         u["step"] = "await_cooldown_only"
