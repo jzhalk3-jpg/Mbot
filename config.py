@@ -1,0 +1,3 @@
+# إعدادات البوت الأساسية
+BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
+ADMIN_ID = 6668364923
