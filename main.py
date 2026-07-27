@@ -9,8 +9,9 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from config import BOT_TOKEN
 
+# توكن البوت الأساسي
+BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 DATA_FILE = "bot_data.json"
 
 def load_data():
@@ -29,7 +30,6 @@ def save_data(data):
 db = load_data()
 
 async def post_init(application):
-    # تعيين قائمة الأوامر التلقائية التي تظهر في زر القائمة (Menu) بجانب خانة الكتابة
     await application.bot.set_my_commands([
         BotCommand("start", "تشغيل البوت وإدارة القنوات")
     ])
@@ -105,7 +105,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_channels[ch_id]["active"] = not current_status
             save_data(db)
             new_status_text = "يعمل 🟢" if user_channels[ch_id]["active"] else "متوقف 🔴"
-            # تم تصحيح الخطأ هنا بإضافة علامات التنصيص النصية بشكل سليم
             await query.message.reply_text(f"تم تحديث حالة القناة بنجاح. أصبحت الآن: {new_status_text}")
 
     elif query.data.startswith("set_wa_"):
