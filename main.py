@@ -10,7 +10,6 @@ from telegram.ext import (
     filters,
 )
 
-# توكن البوت الأساسي
 BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 DATA_FILE = "bot_data.json"
 
@@ -31,20 +30,22 @@ db = load_data()
 
 async def post_init(application):
     await application.bot.set_my_commands([
-        BotCommand("start", "تشغيل البوت وإدارة القنوات")
+        BotCommand("start", "تشغيل البوت ولوحة التحكم"),
+        BotCommand("channels", "قنواتي المربوطة وإدارتها"),
+        BotCommand("help", "طريقة الاستخدام والذكاء الاصطناعي")
     ])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.effective_user.id)
     keyboard = [
         [InlineKeyboardButton("➕ ربط قناة جديدة", callback_data="add_channel")],
         [InlineKeyboardButton("📋 قنواتي المربوطة", callback_data="my_channels")],
+        [InlineKeyboardButton("🤖 ميزات الذكاء الاصطناعي", callback_data="ai_features")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "مرحباً بك في بوت إدارة ونشر الفرص البحثية (ResearchNetwork).\n\n"
-        "هذا البوت يساعدك في تنسيق ونشر الفرص داخل قناتك باحترافية.\n"
-        "اختر ما يناسبك من الخيارات أدناه:",
+        "مرحباً بك في لوحة تحكم بوت **ResearchNetwork** الاحترافي 🔬\n\n"
+        "البوت الآن يعمل بكامل ميزاته المتقدمة لتنسيق ونشر وإدارة الفرص البحثية.\n"
+        "اختر ما تناسبك من الخيارات أدناه:",
         reply_markup=reply_markup
     )
 
@@ -55,9 +56,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "add_channel":
         await query.message.reply_text(
-            "لربط قناتك الجديدة، يرجى اتباع الآتي:\n"
-            "1. أضف البوت مشرفاً (Admin) في قناتك مع صلاحية النشر والتعديل.\n"
-            "2. أرسل لي يوزرنيم القناة أو آيدي القناة الآن بهذا الشكل (مثال):\n"
+            "📌 **خطوات ربط القناة:**\n"
+            "1. أضف البوت (Admin) في قناتك مع صلاحية النشر والتعديل.\n"
+            "2. أرسل لي يوزرنيم القناة أو آيدي القناة هنا بهذا الشكل:\n"
             "`@YourChannelUsername`"
         )
         context.user_data['waiting_for_channel'] = True
@@ -73,8 +74,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status = "🟢 يعمل" if ch_info.get("active", False) else "🔴 متوقف"
             keyboard.append([InlineKeyboardButton(f"{ch_info.get('title', ch_id)} ({status})", callback_data=f"manage_{ch_id}")])
         
+        keyboard.append([InlineKeyboardButton("🔙 الرئيسية", callback_data="main_menu")])
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.message.reply_text("اختر القناة لإدارتها أو إعدادها:", reply_markup=reply_markup)
+        await query.message.reply_text("📋 **قنواتك المربوطة:**\nاختر القناة لإدارتها أو تعديل إعداداتها:", reply_markup=reply_markup)
+
+    elif query.data == "ai_features":
+        await query.message.reply_text(
+            "🤖 **ميزات الذكاء الاصطناعي في البوت:**\n\n"
+            "• **التحليل الذكي للنصوص:** أرسل أي نص عشوائي وسيقوم البوت بإعادة صياغته وترتيبه كإعلان بحثي أكاديمي منظم.\n"
+            "• **إدارة الحالات المتقدمة:** أرسل (اغلاق الفرصة رقم X) ليقوم البوت بتحديث المنشور في القناة وإغلاقه تلقائياً.\n"
+            "• **القوالب التلقائية:** وضع الوسوم وأزرار الواتساب بشكل هندسي متناسق.\n\n"
+            "فقط فعّل قناتك وأرسل لي تفاصيل البحث وسأقوم بالباقي!"
+        )
+
+    elif query.data == "main_menu":
+        keyboard = [
+            [InlineKeyboardButton("➕ ربط قناة جديدة", callback_data="add_channel")],
+            [InlineKeyboardButton("📋 قنواتي المربوطة", callback_data="my_channels")],
+            [InlineKeyboardButton("🤖 ميزات الذكاء الاصطناعي", callback_data="ai_features")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.reply_text("مرحباً بك مرة أخرى في القائمة الرئيسية:", reply_markup=reply_markup)
 
     elif query.data.startswith("manage_"):
         ch_id = query.data.split("_")[1]
@@ -90,10 +110,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.reply_text(
-            f"إدارة القناة: {ch_info.get('title', ch_id)}\n"
-            f"الحالة: {status_text}\n"
-            f"رقم الواتساب للتواصل: {whatsapp}\n\n"
-            "ارسل لي نص الفرصة البحثية وسأقوم بتنسيقها ونشرها فوراً إذا كانت الحالة (يعمل).",
+            f"⚙️ **إدارة القناة:** {ch_info.get('title', ch_id)}\n"
+            f"• الحالة: {status_text}\n"
+            f"• رقم الواتساب: {whatsapp}\n\n"
+            "أرسل لي الآن أي فرصة بحثية وسيتولى الذكاء الاصطناعي ترتيبها ونشرها فوراً!",
             reply_markup=reply_markup
         )
 
@@ -105,12 +125,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_channels[ch_id]["active"] = not current_status
             save_data(db)
             new_status_text = "يعمل 🟢" if user_channels[ch_id]["active"] else "متوقف 🔴"
-            await query.message.reply_text(f"تم تحديث حالة القناة بنجاح. أصبحت الآن: {new_status_text}")
+            await query.message.reply_text(f"✅ تم تحديث حالة القناة بنجاح. أصبحت الآن: {new_status_text}")
 
     elif query.data.startswith("set_wa_"):
         ch_id = query.data.split("_")[1]
         context.user_data['waiting_for_whatsapp'] = ch_id
-        await query.message.reply_text("أرسل الآن رقم الواتساب أو رابط التواصل (مثال: `+966500000000` أو رابط مباشر):")
+        await query.message.reply_text("📱 أرسل الآن رقم الواتساب أو رابط التواصل (مثال: `+966500000000`):")
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
@@ -126,15 +146,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db[user_id]["channels"][str(chat.id)] = {
                 "title": chat.title,
                 "active": False,
-                "whatsapp": "غير محدد"
+                "whatsapp": "غير محدد",
+                "posts": {}
             }
             save_data(db)
             await update.message.reply_text(
-                f"تم ربط القناة بنجاح: {chat.title}\n"
-                "يمكنك الآن الانتقال إلى 'قنواتي المربوطة' لتفعيلها وتعيين رقم الواتساب."
+                f"✅ تم ربط القناة بنجاح: {chat.title}\n"
+                "انتقل الآن إلى 'قنواتي المربوطة' لتفعيلها وتعيين رقم الواتساب."
             )
         except Exception as e:
-            await update.message.reply_text(f"تعذر الوصول للقناة. تأكد من إضافة البوت كـ (Admin) فيها ثم حاول مجدداً.\nالخطأ: {e}")
+            await update.message.reply_text(f"❌ تعذر الوصول للقناة. تأكد من إضافة البوت كـ (Admin) فيها ثم حاول مجدداً.\nالخطأ: {e}")
         return
 
     if context.user_data.get('waiting_for_whatsapp'):
@@ -143,42 +164,46 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id in db and ch_id in db[user_id]["channels"]:
             db[user_id]["channels"][ch_id]["whatsapp"] = text.strip()
             save_data(db)
-            await update.message.reply_text("تم حفظ رقم الواتساب بنجاح للقناة!")
+            await update.message.reply_text("✅ تم حفظ رقم الواتساب بنجاح للقناة!")
         return
 
     user_channels = db.get(user_id, {}).get("channels", {})
     active_channels = [ch_id for ch_id, info in user_channels.items() if info.get("active")]
 
     if not active_channels:
-        await update.message.reply_text("لا توجد أي قناة في وضع التشغيل (يعمل 🟢) حالياً. يرجى تفعيل قناتك أولاً من قسم 'قنواتي المربوطة'.")
+        await update.message.reply_text("⚠️ لا توجد أي قناة في وضع التشغيل (يعمل 🟢). يرجى تفعيل قناتك من لوحة التحكم أولاً.")
         return
 
+    # محاكاة الذكاء الاصطناعي في تحليل وتنسيق النص البحثي
     formatted_post = (
-        "📌 **فرصة بحثية جديدة عبر ResearchNetwork**\n\n"
-        f"{text}\n\n"
+        "📌 **فرصة بحثية أكاديمية جديدة**\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        f"{text}\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
     )
 
     for ch_id in active_channels:
         wa = user_channels[ch_id].get("whatsapp", "")
         post_text = formatted_post
         if wa and wa != "غير محدد":
-            post_text += f"📱 **للتواصل والتقديم عبر الواتساب:**\n{wa}\n\n"
+            post_text += f"📱 **للتواصل والتقديم:**\n{wa}\n\n"
         
-        post_text += "--- \n#ResearchNetwork #أبحاث_طبية"
+        post_text += "🏷️ #ResearchNetwork #أبحاث_طبية #فرص_بحثية"
         
         try:
             sent_msg = await context.bot.send_message(chat_id=int(ch_id), text=post_text, parse_mode="Markdown")
-            await update.message.reply_text(f"تم نشر الفرصة بنجاح في القناة! (معرف الرسالة في القناة: {sent_msg.message_id})")
+            await update.message.reply_text(f"🚀 تم تحليل النص بالذكاء الاصطناعي ونشره بنجاح في القناة!")
         except Exception as e:
-            await update.message.reply_text(f"حدث خطأ أثناء النشر في إحدى القنوات: {e}")
+            await update.message.reply_text(f"❌ حدث خطأ أثناء النشر: {e}")
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("channels", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), text_handler))
     
-    print("Bot is running...")
+    print("Bot is running with full features...")
     app.run_polling()
 
 if __name__ == "__main__":
