@@ -1,6 +1,6 @@
 import json
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -9,7 +9,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from config import BOT_TOKEN, ADMIN_ID
+from config import BOT_TOKEN
 
 DATA_FILE = "bot_data.json"
 
@@ -28,6 +28,12 @@ def save_data(data):
 
 db = load_data()
 
+async def post_init(application):
+    # تعيين قائمة الأوامر التلقائية التي تظهر في زر القائمة (Menu) بجانب خانة الكتابة
+    await application.bot.set_my_commands([
+        BotCommand("start", "تشغيل البوت وإدارة القنوات")
+    ])
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     keyboard = [
@@ -38,7 +44,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "مرحباً بك في بوت إدارة ونشر الفرص البحثية (ResearchNetwork).\n\n"
         "هذا البوت يساعدك في تنسيق ونشر الفرص داخل قناتك باحترافية.\n"
-        "اختر ما تناسبك من الخيارات أدناه:",
+        "اختر ما يناسبك من الخيارات أدناه:",
         reply_markup=reply_markup
     )
 
@@ -99,7 +105,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_channels[ch_id]["active"] = not current_status
             save_data(db)
             new_status_text = "يعمل 🟢" if user_channels[ch_id]["active"] else "متوقف 🔴"
-            await query.message.reply_text(تم تحديث حالة القناة بنجاح. أصبحت الآن: {new_status_text})
+            # تم تصحيح الخطأ هنا بإضافة علامات التنصيص النصية بشكل سليم
+            await query.message.reply_text(f"تم تحديث حالة القناة بنجاح. أصبحت الآن: {new_status_text}")
 
     elif query.data.startswith("set_wa_"):
         ch_id = query.data.split("_")[1]
@@ -140,7 +147,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("تم حفظ رقم الواتساب بنجاح للقناة!")
         return
 
-    # إذا أرسل المستخدم نص فرصة بحثية، نبحث عن القنوات النشطة لديه ونشرها
     user_channels = db.get(user_id, {}).get("channels", {})
     active_channels = [ch_id for ch_id, info in user_channels.items() if info.get("active")]
 
@@ -148,7 +154,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("لا توجد أي قناة في وضع التشغيل (يعمل 🟢) حالياً. يرجى تفعيل قناتك أولاً من قسم 'قنواتي المربوطة'.")
         return
 
-    # تنسيق الإعلان بقالب بحثي أكاديمي احترافي
     formatted_post = (
         "📌 **فرصة بحثية جديدة عبر ResearchNetwork**\n\n"
         f"{text}\n\n"
@@ -164,12 +169,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             sent_msg = await context.bot.send_message(chat_id=int(ch_id), text=post_text, parse_mode="Markdown")
-            await update.message.reply_text(f"تم نشر الفرصة بنجاح في القناة! (معرف الرسالة في القناة: {sent_msg.message_id})\nحفظت لك هذا الرقم لتتمكن لاحقاً من تعديل المنشور أو إغلاقه إذا اكتمل العدد.")
+            await update.message.reply_text(f"تم نشر الفرصة بنجاح في القناة! (معرف الرسالة في القناة: {sent_msg.message_id})")
         except Exception as e:
             await update.message.reply_text(f"حدث خطأ أثناء النشر في إحدى القنوات: {e}")
 
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), text_handler))
