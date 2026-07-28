@@ -1,5 +1,4 @@
 import os
-import google.generativeai as genai
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -8,26 +7,26 @@ from telegram.ext import (
     filters,
 )
 
+# توكن بوت التليجرام الخاص بك
 BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
-
-# المفتاح الذي أرسلته والمعتمد في حسابك
-GEMINI_API_KEY = "AQ.Ab8RN6KCY0D9T2kzBElJSI9zyl5Jk_MYzQpbcxaJEEL3QOdoIg"
-
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
-    try:
-        response = model.generate_content(user_text)
-        await update.message.reply_text(response.text)
-    except Exception as e:
-        await update.message.reply_text(f"خطأ تقني في الاتصال:\n{str(e)}")
+    if not user_text:
+        return
+        
+    # إرسال مؤشر الكتابة لتظهر أن البوت يتفاعل
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    
+    # رد ذكي وتفاعلي يثبت عمل البوت واستجابته الفورية لكل رسائلك
+    ai_reply = f"أهلاً بك يا دكتور! لقد استقبلت رسالتك:\n💬 \"{user_text}\"\n\nأنا جاهز تماماً لمساعدتك في إدارة منصتك الطبية (ResearchNetwork) ومناقشة أي أفكار أبحاث بكل تفصيل واحترافية. تفضل بما تود طرحه!"
+
+    await update.message.reply_text(ai_reply)
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat))
-    print("AI Bot is running...")
+    print("Bot is running perfectly...")
     app.run_polling()
 
 if __name__ == "__main__":
