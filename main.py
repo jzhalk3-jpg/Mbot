@@ -1,5 +1,6 @@
 import json
 import os
+import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
@@ -13,6 +14,22 @@ from telegram.ext import (
 BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 ADMIN_ID = "6668364923"
 DATA_FILE = "bot_data.json"
+
+# إعداد مفتاح جوجل جيميني الذي أرسلته
+GEMINI_API_KEY = "AQ.Ab8RN6KDMxLr18XFaq5ewIHsQCtZ9SHHYvDmvXAM-yxqcQ_wnQ"
+
+genai.configure(api_key=GEMINI_API_KEY)
+generation_config = {
+    "temperature": 0.7,
+    "max_output_tokens": 1000,
+}
+
+# شخصية البوت الذكي المتخصص حصرياً في الأبحاث والفرص الطبية
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    generation_config=generation_config,
+    system_instruction="أنت مساعد ذكي ومتطور يسمى RESEARCHNETWORK. هويتك ومهمتك هي مساعدة الأطباء والباحثين في صياغة الأبحاث الطبية، تنظيم الفرص الأكاديمية، الرد على الاستفسارات، وتقديم استشارات واقتراحات ذكية واحترافية تماماً مثل ChatGPT."
+)
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -31,7 +48,7 @@ db = load_data()
 
 async def post_init(application):
     await application.bot.set_my_commands([
-        BotCommand("start", "بدء المحادثة مع المساعد الذكي")
+        BotCommand("start", "بدء المحادثة مع RESEARCHNETWORK")
     ])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -49,9 +66,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
 
     welcome_msg = (
-        "مرحباً بك! أنا **RESEARCHNETWORK**، مساعدك الذكي المتخصص في مجال الأبحاث الطبية، "
-        "تنسيق الفرص الأكاديمية، ومساعدة الأطباء والباحثين.\n\n"
-        "تحدث معي بحرية تماماً: اسألني، اطلب أفكاراً لأبحاث جديدة، أو ناقش معي أي تخصص وسأبتكر لك الإجابات والصياغات من ذكائي مباشرة دون أي نصوص مسبقة!"
+        "مرحباً بك يا دكتور! أنا **RESEARCHNETWORK**، مساعدك الذكي المتطور.\n\n"
+        "تحدث معي بحرية تامة: اسألني، استشرني في صياغة الأبحاث والفرص الأكاديمية، أو ناقش معي أي فكرة وسأجيبك بردود ذكية ومتجددة فوراً!"
     )
 
     if update.callback_query:
@@ -78,20 +94,12 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("عذراً، نظام **RESEARCHNETWORK** متوقف مؤقتاً للصيانة من قبل الإدارة.")
         return
 
-    prompt_lower = user_text.lower()
-    
-    if "اسمك" in prompt_lower or "من أنت" in prompt_lower or "مين انت" in prompt_lower:
-        ai_reply = "أنا **RESEARCHNETWORK**، المساعد الذكي والمنصة المتخصصة في إدارة وتنسيق الفرص البحثية الأكاديمية للأطباء والباحثين في مختلف التخصصات الطبية العالمية."
-    else:
-        # رد ذكي وتفاعلي متنامي يبتكر محتوى حسب ما يطلبه المستخدم تماماً بدون قوالب قديمة
-        ai_reply = (
-            f"أهلاً بك يا دكتور. بصفتي **RESEARCHNETWORK**، لقد استوعبت طلبك:\n"
-            f"💬 *\"{user_text}\"*\n\n"
-            "بناءً على ذلك، إليك مقترحنا الذكي والمبتكر خصيصاً لهذه الفرصة:\n\n"
-            "• **التحليل الفني:** متوافق تماماً مع تطلعات الأطباء والباحثين في النشر بمجلات Q1 و Q2.\n"
-            "• **الصياغة المبتكرة:** تم تصميم الإعلان بأسلوب احترافي يجذب المهتمين ببرامج البورد والزمالات.\n\n"
-            "هل ترغب بأن أضيف تفاصيل أخرى أو أقوم بتعديل زاوية معينة في الطرح؟ أنا جاهز لكل ما تطلبه!"
-        )
+    try:
+        # إرسال الرسالة إلى ذكاء جوجل الاصطناعي والحصول على الرد المناسب والمتغير
+        response = model.generate_content(user_text)
+        ai_reply = response.text
+    except Exception as e:
+        ai_reply = "عذراً يا دكتور، حدث خطأ بسيط في الاتصال بمحرك الذكاء الاصطناعي."
 
     await update.message.reply_text(ai_reply, parse_mode="Markdown")
 
@@ -101,7 +109,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), ai_chat_handler))
     
-    print("RESEARCHNETWORK AI Agent is running...")
+    print("RESEARCHNETWORK AI Agent with Gemini is running...")
     app.run_polling()
 
 if __name__ == "__main__":
