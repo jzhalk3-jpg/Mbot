@@ -1,2 +1,4 @@
-python-telegram-bot
+fastapi
+uvicorn
 google-generativeai
+jinja2
