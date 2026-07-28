@@ -1,5 +1,6 @@
 import json
 import os
+import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
@@ -13,6 +14,13 @@ from telegram.ext import (
 BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 ADMIN_ID = "6668364923"
 DATA_FILE = "bot_data.json"
+
+# مفتاحك الصحيح الذي ظهر في الصورة
+GEMINI_API_KEY = "AQ.Ab8RN6KDMxLr18XFaq5ewIHsQCtZ9SHHYvDmvXAM-yxqcQ_wnQ"
+
+genai.configure(api_key=GEMINI_API_KEY)
+
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -31,7 +39,7 @@ db = load_data()
 
 async def post_init(application):
     await application.bot.set_my_commands([
-        BotCommand("start", "بدء المحادثة مع البوت")
+        BotCommand("start", "بدء المحادثة")
     ])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -43,15 +51,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     if user_id == ADMIN_ID:
         global_active = db.get("global_system_active", True)
-        btn_text = "🔴 إيقاف البوت عن الجميع (مدير)" if global_active else "🟢 تشغيل البوت للجميع (مدير)"
+        btn_text = "🔴 إيقاف البوت عن الجميع" if global_active else "🟢 تشغيل البوت للجميع"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data="toggle_system")])
     
     reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
 
-    welcome_msg = (
-        "مرحباً بك! أنا مساعدك الذكي المتطور.\n\n"
-        "تحدث معي بحرية تامة في أي موضوع تريده، اسألني، استشرني، أو ناقش معي أي فكرة وسأجيبك فوراً بكل احترافية!"
-    )
+    welcome_msg = "مرحباً بك! أنا مساعدك الذكي المتطور المتصل بجوجل جيميني. تحدث معي بحرية تامة في أي شيء!"
 
     if update.callback_query:
         await update.callback_query.message.edit_text(welcome_msg, reply_markup=reply_markup)
@@ -71,24 +76,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
-    user_text = update.message.text.strip()
-    text_lower = user_text.lower()
+    user_text = update.message.text
 
     if not db.get("global_system_active", True) and user_id != ADMIN_ID:
         await update.message.reply_text("عذراً، النظام متوقف مؤقتاً للصيانة.")
         return
 
-    # محرك ذكاء اصطناعي تفاعلي متقدم يحلل كلامك ويعطيك إجابات عميقة ومرنة
-    if any(w in text_lower for w in ["كيفك", "كيف حالك", "اخبارك", "السلام", "هلا", "مرحبا", "hi", "hello"]):
-        ai_reply = "وعليكم السلام ورحمة الله! أهلاً بك. أنا جاهز تماماً لمساعدتك والإجابة على كل ما تريده اليوم. بماذا تفكر؟"
-    elif any(w in text_lower for w in ["اسمك", "من أنت", "مين انت", "عرفني بك"]):
-        ai_reply = "أنا مساعدك الذكي الرقمي، صُممت لأكون معك في كل استفساراتك وتقديم الأفكار والحلول السريعة لأي موضوع تطرحه."
-    else:
-        ai_reply = (
-            f"لقد استوعبت استفسارك بعناية:\n"
-            f"💬 *\"{user_text}\"*\n\n"
-            "بناءً على تحليلي لما طرحته، أنصح بالنظر للموضوع من زاوية تنظيم الأفكار ووضع خطوة أولى واضحة لتنفيذها بسلاسة. هل تحب أن أساعدك في تفصيل خطوة معينة أو صياغة نص خاص بك؟"
-        )
+    try:
+        response = model.generate_content(user_text)
+        ai_reply = response.text
+    except Exception as e:
+        ai_reply = f"عذراً، حدث خطأ في الاتصال:\n`{str(e)}`"
 
     await update.message.reply_text(ai_reply, parse_mode="Markdown")
 
@@ -98,7 +96,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), ai_chat_handler))
     
-    print("AI Agent is running smoothly...")
+    print("AI Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
