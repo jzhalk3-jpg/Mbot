@@ -7,7 +7,6 @@ import google.generativeai as genai
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# إعداد مفتاح الذكاء الاصطناعي من إعدادات المنصة
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-pro")
