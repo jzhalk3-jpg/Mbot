@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>موقعي للذكاء الاصطناعي</title>
+    <style>
+        body { font-family: Tahoma, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        #chat-container { width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        #chat-box { height: 400px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px; margin-bottom: 15px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px; }
+        .message { padding: 10px; border-radius: 6px; max-width: 80%; line-height: 1.5; }
+        .user-msg { background: #007bff; color: white; align-self: flex-start; }
+        .ai-msg { background: #e9ecef; color: #333; align-self: flex-end; }
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <div id="chat-container">
+        <h2>مساعد الذكاء الاصطناعي</h2>
+        <div id="chat-box"></div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="اكتب رسالتك هنا..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">إرسال</button>
+        </div>
+    </div>
+
+    <script>
+        async function sendMessage() {
+            const inputField = document.getElementById("user-input");
+            const chatBox = document.getElementById("chat-box");
+            const message = inputField.value.trim();
+
+            if (!message) return;
+
+            chatBox.innerHTML += `<div class="message user-msg"><b>أنت:</b> ${message}</div>`;
+            inputField.value = "";
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                const data = await response.json();
+
+                chatBox.innerHTML += `<div class="message ai-msg"><b>الذكاء الاصطناعي:</b> ${data.reply}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (error) {
+                chatBox.innerHTML += `<div class="message ai-msg" style="color:red;">خطأ في الاتصال بالخادم.</div>`;
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>
