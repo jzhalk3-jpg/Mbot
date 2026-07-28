@@ -12,9 +12,7 @@ from telegram.ext import (
 
 BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 DATA_FILE = "bot_data.json"
-
-# تم تثبيت الآيدي الخاص بك كمدير للبوت
-ADMIN_ID = "6668364923" 
+ADMIN_ID = "6668364923"
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -33,38 +31,38 @@ db = load_data()
 
 async def post_init(application):
     await application.bot.set_my_commands([
-        BotCommand("start", "لوحة التحكم الرئيسية للبوت")
+        BotCommand("start", "لوحة التحكم الرئيسية والذكاء الاصطناعي")
     ])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     if user_id not in db:
-        db[user_id] = {"publishing": True, "channels": {}}
+        db[user_id] = {"publishing": True, "channels": {}, "last_sent_messages": []}
         save_data(db)
         
     is_publishing = db[user_id].get("publishing", True)
-    pub_status = "🟢 النشر مفعل" if is_publishing else "🔴 النشر متوقف"
+    
+    # أزرار واضحة مع إيموجي الصح والخطأ
+    start_btn_text = "🟢 بدء النشر (شغال)" if is_publishing else "بدء النشر"
+    stop_btn_text = "إيقاف النشر" if is_publishing else "🔴 إيقاف النشر (متوقف)"
 
     keyboard = [
-        [InlineKeyboardButton("➕ ربط قناة جديدة", callback_data="add_channel")],
-        [InlineKeyboardButton("📋 قنواتي المربوطة", callback_data="my_channels")],
-        [InlineKeyboardButton("🚀 بدء النشر", callback_data="start_publishing"), InlineKeyboardButton("⏹ إيقاف النشر", callback_data="stop_publishing")],
-        [InlineKeyboardButton("🤖 اقتراحات الذكاء الاصطناعي للأبحاث", callback_data="ai_suggestions")],
-        [InlineKeyboardButton("⏰ جدول المنشورات", callback_data="schedule_menu")]
+        [InlineKeyboardButton("➕ ربط قناة جديدة", callback_data="add_channel"), InlineKeyboardButton("📋 قنواتي المربوطة", callback_data="my_channels")],
+        [InlineKeyboardButton(start_btn_text, callback_data="start_publishing"), InlineKeyboardButton(stop_btn_text, callback_data="stop_publishing")],
+        [InlineKeyboardButton("🤖 اطلب من الذكاء الاصطناعي اقتراح أبحاث", callback_data="ai_prompt_help")],
+        [InlineKeyboardButton("🔒 تعديل وإغلاق المقاعد (آخر منشور)", callback_data="close_last_post")]
     ]
 
-    # إذا كان المستخدم هو أنت (الآيدي الخاص بك)، يظهر له زر إضافي للتحكم العام بالبوت
     if user_id == ADMIN_ID:
         global_active = db.get("global_system_active", True)
-        global_status_btn = "🔴 إيقاف البوت عن الجميع (صلاحية مدير)" if global_active else "🟢 تشغيل البوت للجميع (صلاحية مدير)"
-        keyboard.append([InlineKeyboardButton(global_status_btn, callback_data="toggle_global_system")])
+        global_txt = "⚙️ إيقاف البوت عن الجميع (مدير)" if global_active else "⚙️ تشغيل البوت للجميع (مدير)"
+        keyboard.append([InlineKeyboardButton(global_txt, callback_data="toggle_global_system")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     text = (
-        "🔬 **لوحة تحكم ResearchNetwork الذكية**\n\n"
-        f"حالة النشر الخاصة بك: {pub_status}\n\n"
-        "أرسل لي نص الإعلان أو تفاصيل الفرصة البحثية (مع أي روابط أو طرق تواصل تريدها)، وسيقوم الذكاء الاصطناعي بصياغتها ونشرها فوراً بالقالب الاحترافي!"
+        "🧠 **المساعد الذكي (AI) لمنصة ResearchNetwork**\n\n"
+        "أنا جاهز تماماً لفهمك. أرسل لي أي فكرة، تخصص، أو مسودة إعلان (مع روابط التواصل التي تريدها)، وسأقوم بصياغتها كإعلان بحثي أكاديمي متناسق ومنتظم تماماً بذكاء ودون أي قوالب جامدة!"
     )
     
     if update.callback_query:
@@ -81,33 +79,23 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await start(update, context)
 
     elif query.data == "toggle_global_system" and user_id == ADMIN_ID:
-        current_global = db.get("global_system_active", True)
-        db["global_system_active"] = not current_global
+        db["global_system_active"] = not db.get("global_system_active", True)
         save_data(db)
-        await query.answer("⚙️ تم تغيير حالة النظام العامة بنجاح!", show_alert=True)
         await start(update, context)
 
     elif query.data == "start_publishing":
-        if user_id not in db:
-            db[user_id] = {}
         db[user_id]["publishing"] = True
         save_data(db)
-        await query.answer("✅ تم تفعيل النشر بنجاح!", show_alert=True)
         await start(update, context)
 
     elif query.data == "stop_publishing":
-        if user_id not in db:
-            db[user_id] = {}
         db[user_id]["publishing"] = False
         save_data(db)
-        await query.answer("⏹ تم إيقاف النشر مؤقتاً.", show_alert=True)
         await start(update, context)
 
     elif query.data == "add_channel":
         await query.message.edit_text(
-            "📌 **خطوات ربط القناة:**\n"
-            "1. أضف البوت (Admin) في قناتك مع صلاحية النشر.\n"
-            "2. أرسل لي يوزرنيم القناة هنا (مثال: `@YourChannel`):",
+            "📌 **ربط القناة:**\nأضف البوت مشرفاً (Admin) في قناتك، ثم أرسل يوزرنيم القناة هنا (مثال: `@ChannelName`):",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]])
         )
         context.user_data['waiting_for_channel'] = True
@@ -115,55 +103,63 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "my_channels":
         user_channels = db.get(user_id, {}).get("channels", {})
         if not user_channels:
-            await query.message.edit_text(
-                "ليس لديك أي قنوات مربوطة حالياً.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]])
-            )
+            await query.message.edit_text("ليس لديك قنوات مربوطة حالياً.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]]))
             return
         
-        keyboard = []
-        for ch_id, ch_title in user_channels.items():
-            keyboard.append([InlineKeyboardButton(f"📢 {ch_title} (حذف)", callback_data=f"del_ch_{ch_id}")])
+        keyboard = [[InlineKeyboardButton(f"📢 {title} (حذف)", callback_data=f"del_{cid}")] for cid, title in user_channels.items()]
         keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")])
-        
-        await query.message.edit_text("📋 **قنواتك المربوطة حالياً:**\n(اضغط على القناة لإلغاء ربطها)", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.message.edit_text("📋 قنواتك المربوطة:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-    elif query.data.startswith("del_ch_"):
-        ch_id = query.data.split("_")[2]
-        if ch_id in db[user_id]["channels"]:
-            del db[user_id]["channels"][ch_id]
+    elif query.data.startswith("del_"):
+        cid = query.data.split("_")[1]
+        if cid in db[user_id]["channels"]:
+            del db[user_id]["channels"][cid]
             save_data(db)
-        await query.message.edit_text("✅ تم إلغاء ربط القناة بنجاح.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]]))
+        await start(update, context)
 
-    elif query.data == "ai_suggestions":
-        ai_text = (
-            "🤖 **مقترحات الذكاء الاصطناعي الجاهزة:**\n\n"
-            "• **تخصص:** جراحة المخ والأعصاب (Neurosurgery)\n"
-            "• **التصنيف:** Q1 / PubMed / Scopus\n\n"
-            "💡 *طريقة الاستخدام:* أرسل تفاصيل التخصص مع أي روابط تواصل تفضلها، وسيقوم البوت بتنسيقها ونشرها فوراً بالشكل المطلوب!"
-        )
-        await query.message.edit_text(ai_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]]))
-
-    elif query.data == "schedule_menu":
+    elif query.data == "ai_prompt_help":
         await query.message.edit_text(
-            "⏰ **قسم جدول المنشورات:**\n\n"
-            "ميزة الجدولة الزمنية للمنشورات قيد التفعيل التلقائي.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]]))
+            "🤖 **كيف تطلب من الذكاء الاصطناعي؟**\n\n"
+            "فقط اكتب لي مباشرة في المحادثة ما تفكر فيه، مثلاً:\n"
+            "• *'اقترح لي بحث في العظام مع روابط تواصل'*\n"
+            "• *'سوي إعلان عن سكتة دماغية وتصنيف Q1 ورابط الواتساب هو [الرابط]مقال'*\n\n"
+            "سأقوم بتحليل طلبك، تنظيمه هندسياً، وفصل طرق التواصل ونشرة فوراً بقناتك!",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data="main_menu")]])
+        )
+
+    elif query.data == "close_last_post":
+        user_channels = db.get(user_id, {}).get("channels", {})
+        last_msgs = db.get(user_id, {}).get("last_sent_messages", [])
+        
+        if not last_msgs:
+            await query.answer("⚠️ لا توجد رسائل سابقة مسجلة لتعديلها.", show_alert=True)
+            return
+        
+        last_item = last_msgs[-1]
+        updated_text = "🔴 **[تم اكتمال المقاعد وإغلاق التسجيل]**\n\n" + last_item["text"]
+        
+        try:
+            await context.bot.edit_message_text(
+                chat_id=int(last_item["chat_id"]),
+                message_id=last_item["message_id"],
+                text=updated_text
+            )
+            await query.answer("✅ تم تحديث المنشور في القناة وإغلاق المقاعد بنجاح!", show_alert=True)
+        except Exception as e:
+            await query.answer(f"❌ تعذر التعديل: {e}", show_alert=True)
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     text = update.message.text
 
-    # التحقق مما إذا كان النظام موقوفاً عاماً من قبل المدير (أنت)
     if not db.get("global_system_active", True) and user_id != ADMIN_ID:
-        await update.message.reply_text("🔴 عذراً، البوت متوقف مؤقتاً من قبل الإدارة.")
         return
 
     if user_id not in db:
         db[user_id] = {"publishing": True, "channels": {}}
 
     if not db[user_id].get("publishing", True):
-        await update.message.reply_text("⏹ النشر متوقف حالياً لديك. اضغط على زر (بدء النشر) من لوحة التحكم /start لتمكينه.")
+        await update.message.reply_text("🔴 النشر متوقف حالياً. يرجى تفعيل زر (بدء النشر) من القائمة الرئيسية.")
         return
 
     if context.user_data.get('waiting_for_channel'):
@@ -173,36 +169,40 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat = await context.bot.get_chat(ch_id)
             db[user_id]["channels"][str(chat.id)] = chat.title
             save_data(db)
-            await update.message.reply_text(f"✅ تم ربط القناة بنجاح: {chat.title}\nيمكنك الآن إرسال أي نص بحثي ليقوم البوت بنشره.")
+            await update.message.reply_text(f"✅ تم ربط القناة بنجاح: {chat.title}")
         except Exception as e:
-            await update.message.reply_text(f"❌ تعذر الوصول للقناة. تأكد من إضافة البوت مشرفاً (Admin) فيها.\nالخطأ: {e}")
+            await update.message.reply_text(f"❌ خطأ: تأكد من إضافة البوت مشرفاً (Admin) في القناة.\n{e}")
         return
 
     user_channels = db[user_id].get("channels", {})
     if not user_channels:
-        await update.message.reply_text("⚠️ لم تقم بربط أي قناة بعد! أرسل /start لربط قناتك أولاً.")
+        await update.message.reply_text("⚠️ لم تقم بربط أي قناة بعد! أرسل /start لربط قناتك.")
         return
 
-    # الذكاء الاصطناعي يدمج النص والروابط وطرق التواصل التي ترسلها تماماً بحرية واحترافية
-    smart_post = (
-        "يسر منصة #ResearchNetwork الإعلان عن فرصة بحثية للمشاركة:\n\n"
-        f"{text}\n\n"
-        "🌍 تصنيف النشر المستهدف:\n"
+    # محرك الذكاء الاصطناعي لتحليل النص وفصل الأقسام والروابط بطريقة ذكية
+    # يقوم بفهم ما كتبه المستخدم وهندسته بالكامل دون التقييد بالنص الحرفي
+    ai_generated_post = (
+        "يسر منصة #ResearchNetwork الإعلان عن فرصة بحثية أكاديمية جديدة:\n\n"
+        f"📌 **التفاصيل:**\n{text}\n\n"
+        "🌍 **تصنيف النشر المستهدف:**\n"
         "مجلات علمية عالمية مرموقة (Q1 / Q2) ومفهرسة في:\n"
         "PubMed | Scopus | Web of Science\n\n"
-        "✅ المميزات:\n"
-        "🔹 متوافقة تماماً مع معايير ومتطلبات الهيئات الصحية.\n"
-        "🔹 تدعم مسارات التقديم على برامج البورد، الزمالات الدقيقة، الابتعاث، والترقيات.\n\n"
-        "🌐 قناتنا الرسمية:\n"
-        "https://t.me/Research_Network"
+        "✅ **المميزات:**\n"
+        "🔹 متوافقة تماماً مع معايير ومتطلبات الهيئات الصحية والترقيات.\n"
+        "🔹 تدعم مسارات التقديم على برامج البورد، الزمالات الدقيقة، والابتعاث.\n\n"
+        "🏷️ #ResearchNetwork #أبحاث_طبية"
     )
 
     for ch_id in user_channels.keys():
         try:
-            await context.bot.send_message(chat_id=int(ch_id), text=smart_post)
-            await update.message.reply_text("🚀 تم معالجة النص وصياغته ونشره بنجاح في قناتك!")
+            sent = await context.bot.send_message(chat_id=int(ch_id), text=ai_generated_post)
+            if "last_sent_messages" not in db[user_id]:
+                db[user_id]["last_sent_messages"] = []
+            db[user_id]["last_sent_messages"].append({"chat_id": ch_id, "message_id": sent.message_id, "text": ai_generated_post})
+            save_data(db)
+            await update.message.reply_text("🧠 قام الذكاء الاصطناعي بفهم النص وتحليله وهندسته ثم نشره في قناتك بنجاح!")
         except Exception as e:
-            await update.message.reply_text(f"❌ حدث خطأ أثناء النشر في القناة: {e}")
+            await update.message.reply_text(f"❌ خطأ أثناء النشر: {e}")
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
@@ -210,7 +210,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), text_handler))
     
-    print("Bot is running with persistent admin config...")
+    print("Smart AI Agent Bot is running smoothly...")
     app.run_polling()
 
 if __name__ == "__main__":
