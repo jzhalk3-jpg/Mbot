@@ -15,13 +15,17 @@ BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 ADMIN_ID = "6668364923"
 DATA_FILE = "bot_data.json"
 
-# مفتاح جوجل جيميني الخاص بك
-GEMINI_API_KEY = "AQ.Ab8RN6KDMxLr18XFaq5ewIHsQCtZ9SHHYvDmvXAM-yxqcQ_wnQ"
+# ضع مفتاحك الصحيح هنا مباشرة (الذي يبدأ بـ AIza...)
+# يرجى نسخ المفتاح الكامل بالضغط على أيقونة النسخ بجوار المفتاح في صورتك ووضعه هنا بين الأقواس:
+GEMINI_API_KEY = "نسخ_المفتاح_من_صورة_جوجل_وهنا_مكانة"
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# استخدام الإصدار الأحدث والأكثر استقراراً لضمان عدم توقف البوت أبداً
-model = genai.GenerativeModel("gemini-1.5-flash")
+# إعداد نموذج جيميني للرد بذكاء اصطناعي كامل
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    system_instruction="أنت مساعد ذكي ومنصة تسمى RESEARCHNETWORK متخصصة في الأبحاث الطبية، تنظيم الفرص الأكاديمية، ومساعدة الأطباء والباحثين. أجب بكل احترافية وتفاعل على كل رسالة."
+)
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -59,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome_msg = (
         "مرحباً بك يا دكتور! أنا **RESEARCHNETWORK**، مساعدك الذكي المتطور.\n\n"
-        "تحدث معي بحرية تامة: اسألني عن أي استفسار يخص الأبحاث الطبية، طرق جذب الأطباء، صياغة الإعلانات الأكاديمية، أو ناقش معي أي فكرة وسأجيبك فوراً بكل احترافية!"
+        "تحدث معي بحرية تامة: اسألني عن الأبحاث الطبية، استشرني في صياغة الإعلانات، أو ناقش معي أي فكرة وسأجيبك بذكاء اصطناعي حقيقي فوراً!"
     )
 
     if update.callback_query:
@@ -87,12 +91,11 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        # صياغة توجيه ذكي للبوت ليجيب كخبير أبحاث طبية
-        full_prompt = f"أنت مساعد ذكي ومنصة تسمى RESEARCHNETWORK متخصصة في الأبحاث الطبية ومساعدة الأطباء. أجب باحترافية على هذا السؤال: {user_text}"
-        response = model.generate_content(full_prompt)
+        # إرسال الرسالة إلى نموذج جيميني الحقيقي واستقبال الرد الذكي
+        response = model.generate_content(user_text)
         ai_reply = response.text
     except Exception as e:
-        ai_reply = f"عذراً يا دكتور، حدث خطأ تقني في الاتصال:\n`{str(e)}`"
+        ai_reply = f"عذراً يا دكتور، تأكد من وضع مفتاح API الصحيح في الكود. الخطأ التقني:\n`{str(e)}`"
 
     await update.message.reply_text(ai_reply, parse_mode="Markdown")
 
