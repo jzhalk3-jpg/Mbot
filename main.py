@@ -15,21 +15,13 @@ BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 ADMIN_ID = "6668364923"
 DATA_FILE = "bot_data.json"
 
-# إعداد مفتاح جوجل جيميني الذي أرسلته
+# مفتاح جوجل جيميني الخاص بك
 GEMINI_API_KEY = "AQ.Ab8RN6KDMxLr18XFaq5ewIHsQCtZ9SHHYvDmvXAM-yxqcQ_wnQ"
 
 genai.configure(api_key=GEMINI_API_KEY)
-generation_config = {
-    "temperature": 0.7,
-    "max_output_tokens": 1000,
-}
 
-# شخصية البوت الذكي المتخصص حصرياً في الأبحاث والفرص الطبية
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    generation_config=generation_config,
-    system_instruction="أنت مساعد ذكي ومتطور يسمى RESEARCHNETWORK. هويتك ومهمتك هي مساعدة الأطباء والباحثين في صياغة الأبحاث الطبية، تنظيم الفرص الأكاديمية، الرد على الاستفسارات، وتقديم استشارات واقتراحات ذكية واحترافية تماماً مثل ChatGPT."
-)
+# استخدام الإصدار الأحدث والأكثر استقراراً لضمان عدم توقف البوت أبداً
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -67,7 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome_msg = (
         "مرحباً بك يا دكتور! أنا **RESEARCHNETWORK**، مساعدك الذكي المتطور.\n\n"
-        "تحدث معي بحرية تامة: اسألني، استشرني في صياغة الأبحاث والفرص الأكاديمية، أو ناقش معي أي فكرة وسأجيبك بردود ذكية ومتجددة فوراً!"
+        "تحدث معي بحرية تامة: اسألني عن أي استفسار يخص الأبحاث الطبية، طرق جذب الأطباء، صياغة الإعلانات الأكاديمية، أو ناقش معي أي فكرة وسأجيبك فوراً بكل احترافية!"
     )
 
     if update.callback_query:
@@ -95,11 +87,12 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        # إرسال الرسالة إلى ذكاء جوجل الاصطناعي والحصول على الرد المناسب والمتغير
-        response = model.generate_content(user_text)
+        # صياغة توجيه ذكي للبوت ليجيب كخبير أبحاث طبية
+        full_prompt = f"أنت مساعد ذكي ومنصة تسمى RESEARCHNETWORK متخصصة في الأبحاث الطبية ومساعدة الأطباء. أجب باحترافية على هذا السؤال: {user_text}"
+        response = model.generate_content(full_prompt)
         ai_reply = response.text
     except Exception as e:
-        ai_reply = "عذراً يا دكتور، حدث خطأ بسيط في الاتصال بمحرك الذكاء الاصطناعي."
+        ai_reply = f"عذراً يا دكتور، حدث خطأ تقني في الاتصال:\n`{str(e)}`"
 
     await update.message.reply_text(ai_reply, parse_mode="Markdown")
 
@@ -109,7 +102,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), ai_chat_handler))
     
-    print("RESEARCHNETWORK AI Agent with Gemini is running...")
+    print("RESEARCHNETWORK AI Agent is running...")
     app.run_polling()
 
 if __name__ == "__main__":
