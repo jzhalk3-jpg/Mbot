@@ -15,13 +15,12 @@ BOT_TOKEN = "8988527398:AAGf5Y6pFROU0i93IsyjeYx83bz7XzI29Sk"
 ADMIN_ID = "6668364923"
 DATA_FILE = "bot_data.json"
 
-# ضع مفتاحك الصحيح هنا مباشرة (الذي يبدأ بـ AIza...)
-# يرجى نسخ المفتاح الكامل بالضغط على أيقونة النسخ بجوار المفتاح في صورتك ووضعه هنا بين الأقواس:
-GEMINI_API_KEY = "نسخ_المفتاح_من_صورة_جوجل_وهنا_مكانة"
+# مفتاح جوجل جيميني الذي أرسلته
+GEMINI_API_KEY = "AQ.Ab8RN6KDMxLr18XFaq5ewIHsQCtZ9SHHYvDmvXAM-yxqcQ_wnQ"
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# إعداد نموذج جيميني للرد بذكاء اصطناعي كامل
+# إعداد نموذج الذكاء الاصطناعي للبوت
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     system_instruction="أنت مساعد ذكي ومنصة تسمى RESEARCHNETWORK متخصصة في الأبحاث الطبية، تنظيم الفرص الأكاديمية، ومساعدة الأطباء والباحثين. أجب بكل احترافية وتفاعل على كل رسالة."
@@ -91,11 +90,11 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        # إرسال الرسالة إلى نموذج جيميني الحقيقي واستقبال الرد الذكي
+        # إرسال الرسالة لجوجل جيميني واستقبال الرد الذكي
         response = model.generate_content(user_text)
         ai_reply = response.text
     except Exception as e:
-        ai_reply = f"عذراً يا دكتور، تأكد من وضع مفتاح API الصحيح في الكود. الخطأ التقني:\n`{str(e)}`"
+        ai_reply = f"عذراً يا دكتور، حدث خطأ بسيط في الاتصال:\n`{str(e)}`"
 
     await update.message.reply_text(ai_reply, parse_mode="Markdown")
 
