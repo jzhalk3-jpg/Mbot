@@ -2,6 +2,7 @@ import telebot
 import requests
 import json
 import sqlite3
+import random
 from datetime import datetime
 
 # ========== بياناتك ==========
@@ -20,6 +21,7 @@ cursor = conn.cursor()
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
+        account_number INTEGER UNIQUE,
         balance REAL DEFAULT 0,
         first_name TEXT,
         username TEXT,
@@ -39,15 +41,14 @@ def api_request(action, **params):
         return f'ERROR:{str(e)}'
 
 def get_countries():
-    """جلب قائمة الدول مع الأسعار (إن وجدت)"""
+    """جلب قائمة الدول مع الأسعار"""
     resp = api_request('getCountries')
     try:
         data = json.loads(resp)
         if isinstance(data, dict):
             countries = []
             for code, name in data.items():
-                # جلب السعر لكل دولة (اختياري)
-                price = get_price(code, 'tg')  # نأخذ سعر تلغرام كمرجع
+                price = get_price(code, 'tg')
                 countries.append({'code': code, 'name': name, 'price': price})
             return countries
         return []
@@ -87,6 +88,14 @@ def cancel_order(order_id):
     return resp == 'ACCESS_CANCEL'
 
 # ========== دوال المستخدمين ==========
+def generate_account_number():
+    """إنشاء رقم حساب عشوائي مكون من 5 أرقام"""
+    while True:
+        num = random.randint(10000, 99999)
+        cursor.execute("SELECT user_id FROM users WHERE account_number=?", (num,))
+        if not cursor.fetchone():
+            return num
+
 def get_balance(user_id):
     cursor.execute("SELECT balance FROM users WHERE user_id=?", (user_id,))
     row = cursor.fetchone()
@@ -97,36 +106,40 @@ def update_balance(user_id, new_bal):
     conn.commit()
 
 def add_user(user_id, first_name, username):
-    cursor.execute("INSERT OR IGNORE INTO users (user_id, first_name, username, reg_date) VALUES (?,?,?,?)",
-                   (user_id, first_name, username, datetime.now().isoformat()))
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, account_number, first_name, username, reg_date) VALUES (?,?,?,?,?)",
+                   (user_id, generate_account_number(), first_name, username, datetime.now().isoformat()))
     conn.commit()
+
+def get_account_number(user_id):
+    cursor.execute("SELECT account_number FROM users WHERE user_id=?", (user_id,))
+    row = cursor.fetchone()
+    return row[0] if row else None
 
 # ========== أوامر البوت ==========
 @bot.message_handler(commands=['start'])
 def start_cmd(msg):
     user = msg.from_user
     add_user(user.id, user.first_name or '', user.username or '')
+    bal = get_balance(user.id)
+    acc_num = get_account_number(user.id)
+    
     welcome_text = f"""
 👋 أهلاً بك في بوت {BOT_NAME}!
 
-📌 يمكنك شراء أرقام وهمية لتلغرام وواتساب بسهولة.
-
-🔹 لعرض رصيدك: /balance
-🔹 لشراء رقم: /buy
-🔹 معرفك (User ID): `{user.id}`
+📌 حسابك: #{acc_num}
+💰 رصيدك الحالي: {bal:.2f} دولار
+🆔 معرفك (User ID): `{user.id}`
 
 📞 للشحن أو الدعم: {ADMIN_USERNAME}
+
+استخدم الزر أدناه لبدء الشراء.
 """
-    # إضافة أزرار رئيسية
     markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(
-        telebot.types.InlineKeyboardButton("🛒 شراء رقم", callback_data="main_buy"),
-        telebot.types.InlineKeyboardButton("💰 رصيدي", callback_data="main_balance")
-    )
-    markup.add(
-        telebot.types.InlineKeyboardButton("📞 شحن حسابي", callback_data="main_charge"),
-        telebot.types.InlineKeyboardButton("🆔 معرفي", callback_data="main_id")
-    )
+    markup.add(telebot.types.InlineKeyboardButton("🛒 شراء رقم", callback_data="main_buy"))
+    
+    # إضافة زر شحن للمستخدمين العاديين (يظهر يوزر المشرف)
+    markup.add(telebot.types.InlineKeyboardButton("📞 شحن حسابي", callback_data="main_charge"))
+    
     bot.reply_to(msg, welcome_text, parse_mode='Markdown', reply_markup=markup)
 
 @bot.message_handler(commands=['balance'])
@@ -136,11 +149,7 @@ def balance_cmd(msg):
 
 @bot.message_handler(commands=['buy'])
 def buy_cmd(msg):
-    uid = msg.from_user.id
-    if get_balance(uid) <= 0:
-        bot.reply_to(msg, f"⚠️ رصيدك غير كافٍ. يرجى الشحن عبر {ADMIN_USERNAME}")
-        return
-    # عرض اختيار الخدمة
+    # عرض اختيار الخدمة (حتى لو الرصيد صفر)
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("📱 تلغرام", callback_data="service_tg"),
@@ -152,30 +161,21 @@ def buy_cmd(msg):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('main_'))
 def main_buttons(call):
     if call.data == 'main_buy':
-        # تنفيذ أمر الشراء
         buy_cmd(call.message)
-        bot.answer_callback_query(call.id)
-    elif call.data == 'main_balance':
-        balance_cmd(call.message)
         bot.answer_callback_query(call.id)
     elif call.data == 'main_charge':
         bot.send_message(call.message.chat.id, f"📞 للشحن، تواصل مع المشرف: {ADMIN_USERNAME}")
         bot.answer_callback_query(call.id)
-    elif call.data == 'main_id':
-        user_id = call.from_user.id
-        bot.send_message(call.message.chat.id, f"🆔 معرفك (User ID): `{user_id}`", parse_mode='Markdown')
-        bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('service_'))
 def service_callback(call):
-    service_code = call.data.split('_')[1]  # tg أو wa
+    service_code = call.data.split('_')[1]
     countries = get_countries()
     if not countries:
         bot.answer_callback_query(call.id, "حدث خطأ في جلب الدول، حاول مجدداً.")
         return
-    # بناء أزرار الدول مع الأسعار
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    for c in countries[:30]:  # حد أقصى 30 دولة
+    for c in countries[:30]:
         price = c.get('price', 0.5) * PRICE_MULTIPLIER
         btn_text = f"{c['name']} (${price:.2f})"
         markup.add(telebot.types.InlineKeyboardButton(btn_text, callback_data=f"country_{c['code']}_{service_code}"))
@@ -194,8 +194,9 @@ def country_callback(call):
     final_price = original_price * PRICE_MULTIPLIER
     bal = get_balance(uid)
 
+    # التحقق من الرصيد قبل الشراء
     if bal < final_price:
-        bot.answer_callback_query(call.id, f"⚠️ رصيدك غير كافٍ. تحتاج {final_price:.2f} دولار.")
+        bot.answer_callback_query(call.id, f"⚠️ رصيدك غير كافٍ. تحتاج {final_price:.2f} دولار. قم بالشحن عبر {ADMIN_USERNAME}")
         return
 
     result = buy_number(country_code, service_code)
@@ -221,7 +222,6 @@ def country_callback(call):
     # إشعار للمشرف
     bot.send_message(ADMIN_ID, f"🛒 عملية شراء جديدة:\nالمستخدم: {call.from_user.first_name} (ID: {uid})\nالخدمة: {service_code}\nالدولة: {country_code}\nالرقم: {result['phone']}\nالسعر: {final_price:.2f}")
 
-    # أزرار للحصول على الرمز أو الإلغاء
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("📩 الحصول على رمز التفعيل", callback_data=f"getcode_{result['id']}"),
@@ -262,11 +262,10 @@ def refresh_countries(call):
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=markup)
     bot.answer_callback_query(call.id, "تم تحديث القائمة")
 
-# ========== أوامر المشرف ==========
+# ========== أوامر المشرف (تظهر فقط للمشرف) ==========
 @bot.message_handler(commands=['addbalance'])
 def add_balance_cmd(msg):
     if msg.from_user.id != ADMIN_ID:
-        bot.reply_to(msg, "⛔ هذا الأمر للمشرف فقط.")
         return
     try:
         parts = msg.text.split()
