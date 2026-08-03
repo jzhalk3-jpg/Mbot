@@ -8,11 +8,59 @@ from datetime import datetime
 # ========== بياناتك ==========
 BOT_TOKEN = '8857994405:AAFfz4TM1EdwPAz5kXRJDfsU61g389GJ8VA'
 API_KEY = '3f922dc528330f4159e300d651518d0f'
-ADMIN_ID = 2002553890  # ايدي المشرف
-ADMIN_USERNAME = '@M12ip12'  # يوزر المشرف للتواصل
+ADMIN_ID = 2002553890
+ADMIN_USERNAME = '@M12ip12'
 BOT_NAME = 'رقمي | Raqmi'
-PRICE_MULTIPLIER = 1.5  # زيادة 50% (مخفية عن المستخدم)
+PRICE_MULTIPLIER = 1.5
 BASE_URL = 'https://grizzlysms.com/stubs/handler_api.php'
+
+# ========== قاموس ترجمة الدول (الاسم العربي + العلم) ==========
+COUNTRIES_MAP = {
+    'sa': {'name': '🇸🇦 السعودية'},
+    'ae': {'name': '🇦🇪 الإمارات'},
+    'us': {'name': '🇺🇸 الولايات المتحدة'},
+    'uk': {'name': '🇬🇧 بريطانيا'},
+    'eg': {'name': '🇪🇬 مصر'},
+    'kw': {'name': '🇰🇼 الكويت'},
+    'qa': {'name': '🇶🇦 قطر'},
+    'tr': {'name': '🇹🇷 تركيا'},
+    'de': {'name': '🇩🇪 ألمانيا'},
+    'fr': {'name': '🇫🇷 فرنسا'},
+    'it': {'name': '🇮🇹 إيطاليا'},
+    'es': {'name': '🇪🇸 إسبانيا'},
+    'ru': {'name': '🇷🇺 روسيا'},
+    'in': {'name': '🇮🇳 الهند'},
+    'cn': {'name': '🇨🇳 الصين'},
+    'jp': {'name': '🇯🇵 اليابان'},
+    'kr': {'name': '🇰🇷 كوريا'},
+    'br': {'name': '🇧🇷 البرازيل'},
+    'mx': {'name': '🇲🇽 المكسيك'},
+    'ca': {'name': '🇨🇦 كندا'},
+    'au': {'name': '🇦🇺 أستراليا'},
+    'id': {'name': '🇮🇩 إندونيسيا'},
+    'pk': {'name': '🇵🇰 باكستان'},
+    'bd': {'name': '🇧🇩 بنغلاديش'},
+    'ng': {'name': '🇳🇬 نيجيريا'},
+    'za': {'name': '🇿🇦 جنوب أفريقيا'},
+    'ar': {'name': '🇦🇷 الأرجنتين'},
+    'ch': {'name': '🇨🇭 سويسرا'},
+    'nl': {'name': '🇳🇱 هولندا'},
+    'se': {'name': '🇸🇪 السويد'},
+    'no': {'name': '🇳🇴 النرويج'},
+    'dk': {'name': '🇩🇰 الدنمارك'},
+    'fi': {'name': '🇫🇮 فنلندا'},
+    'pl': {'name': '🇵🇱 بولندا'},
+    'ua': {'name': '🇺🇦 أوكرانيا'},
+    'ir': {'name': '🇮🇷 إيران'},
+    'iq': {'name': '🇮🇶 العراق'},
+    'sy': {'name': '🇸🇾 سوريا'},
+    'jo': {'name': '🇯🇴 الأردن'},
+    'lb': {'name': '🇱🇧 لبنان'},
+    'ps': {'name': '🇵🇸 فلسطين'},
+    'ye': {'name': '🇾🇪 اليمن'},
+    'bh': {'name': '🇧🇭 البحرين'},
+    'om': {'name': '🇴🇲 عمان'},
+}
 
 # ========== تهيئة البوت وقاعدة البيانات ==========
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -30,18 +78,17 @@ cursor.execute('''
 ''')
 conn.commit()
 
-# ========== دوال API الخاصة بـ Grizzly SMS ==========
+# ========== دوال API ==========
 def api_request(action, **params):
     params['api_key'] = API_KEY
     params['action'] = action
     try:
         resp = requests.get(BASE_URL, params=params, timeout=30)
         return resp.text
-    except Exception as e:
-        return f'ERROR:{str(e)}'
+    except:
+        return 'ERROR'
 
 def get_countries():
-    """جلب قائمة الدول مع الأسعار"""
     resp = api_request('getCountries')
     try:
         data = json.loads(resp)
@@ -56,7 +103,6 @@ def get_countries():
         return []
 
 def get_price(country, service):
-    """الحصول على السعر الأصلي من الموقع"""
     resp = api_request('getPrice', country=country, service=service)
     try:
         data = json.loads(resp)
@@ -65,7 +111,6 @@ def get_price(country, service):
         return 0.5
 
 def buy_number(country, service):
-    """شراء رقم"""
     resp = api_request('getNumber', country=country, service=service)
     if resp.startswith('ACCESS_NUMBER'):
         parts = resp.split(':')
@@ -74,7 +119,6 @@ def buy_number(country, service):
     return None
 
 def get_sms_code(order_id):
-    """الحصول على رمز التفعيل"""
     resp = api_request('getStatus', id=order_id)
     if resp.startswith('STATUS_WAIT_CODE'):
         parts = resp.split(':')
@@ -83,13 +127,11 @@ def get_sms_code(order_id):
     return None
 
 def cancel_order(order_id):
-    """إلغاء الطلب"""
     resp = api_request('cancelNumber', id=order_id)
     return resp == 'ACCESS_CANCEL'
 
 # ========== دوال المستخدمين ==========
 def generate_account_number():
-    """إنشاء رقم حساب عشوائي مكون من 5 أرقام"""
     while True:
         num = random.randint(10000, 99999)
         cursor.execute("SELECT user_id FROM users WHERE account_number=?", (num,))
@@ -126,7 +168,7 @@ def start_cmd(msg):
     welcome_text = f"""
 👋 أهلاً بك في بوت {BOT_NAME}!
 
-📌 حسابك: #{acc_num}
+📌 حسابك: `{acc_num}`
 💰 رصيدك الحالي: {bal:.2f} دولار
 🆔 معرفك (User ID): `{user.id}`
 
@@ -135,10 +177,12 @@ def start_cmd(msg):
 استخدم الزر أدناه لبدء الشراء.
 """
     markup = telebot.types.InlineKeyboardMarkup()
+    # زر شراء رقم
     markup.add(telebot.types.InlineKeyboardButton("🛒 شراء رقم", callback_data="main_buy"))
-    
-    # إضافة زر شحن للمستخدمين العاديين (يظهر يوزر المشرف)
+    # زر شحن حسابي (للمستخدمين)
     markup.add(telebot.types.InlineKeyboardButton("📞 شحن حسابي", callback_data="main_charge"))
+    # زر نسخ رقم الحساب
+    markup.add(telebot.types.InlineKeyboardButton("📋 نسخ رقم الحساب", callback_data=f"copy_acc_{acc_num}"))
     
     bot.reply_to(msg, welcome_text, parse_mode='Markdown', reply_markup=markup)
 
@@ -149,7 +193,6 @@ def balance_cmd(msg):
 
 @bot.message_handler(commands=['buy'])
 def buy_cmd(msg):
-    # عرض اختيار الخدمة (حتى لو الرصيد صفر)
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("📱 تلغرام", callback_data="service_tg"),
@@ -157,7 +200,81 @@ def buy_cmd(msg):
     )
     bot.reply_to(msg, "اختر الخدمة التي تريد رقمًا لها:", reply_markup=markup)
 
-# ========== معالجة الأزرار ==========
+# ========== أوامر المشرف (لوحة التحكم) ==========
+@bot.message_handler(commands=['admin'])
+def admin_panel(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(telebot.types.InlineKeyboardButton("➕ شحن مستخدم", callback_data="admin_charge"))
+    markup.add(telebot.types.InlineKeyboardButton("🔧 تعديل نسبة الربح", callback_data="admin_price"))
+    bot.reply_to(msg, "👨‍💻 لوحة تحكم المشرف:", reply_markup=markup)
+
+# متغيرات مؤقتة لخطوات الشحن
+temp_data = {}
+
+@bot.callback_query_handler(func=lambda call: call.data == 'admin_charge')
+def admin_charge_step1(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "غير مصرح")
+        return
+    msg = bot.send_message(call.message.chat.id, "📝 أرسل **معرف المستخدم (User ID)** الذي تريد شحنه:")
+    bot.register_next_step_handler(msg, admin_charge_step2)
+    bot.answer_callback_query(call.id)
+
+def admin_charge_step2(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    try:
+        uid = int(msg.text)
+        temp_data['charge_uid'] = uid
+        msg2 = bot.reply_to(msg, "💰 أرسل **المبلغ** الذي تريد إضافته (بالدولار):")
+        bot.register_next_step_handler(msg2, admin_charge_step3)
+    except:
+        bot.reply_to(msg, "❌ خطأ: المعرف يجب أن يكون أرقاماً فقط. حاول مجدداً باستخدام /admin")
+
+def admin_charge_step3(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    try:
+        amount = float(msg.text)
+        if amount <= 0:
+            bot.reply_to(msg, "❌ المبلغ يجب أن يكون موجباً.")
+            return
+        uid = temp_data.get('charge_uid')
+        if not uid:
+            bot.reply_to(msg, "❌ حدث خطأ، استخدم /admin مجدداً.")
+            return
+        current = get_balance(uid)
+        new = current + amount
+        update_balance(uid, new)
+        bot.reply_to(msg, f"✅ تم إضافة {amount} دولار للمستخدم {uid}. الرصيد الجديد: {new:.2f}")
+        bot.send_message(uid, f"💰 تم شحن رصيدك بمبلغ {amount} دولار. رصيدك الحالي: {new:.2f}")
+        temp_data['charge_uid'] = None
+    except:
+        bot.reply_to(msg, "❌ خطأ: المبلغ يجب أن يكون رقماً. حاول مجدداً باستخدام /admin")
+
+@bot.callback_query_handler(func=lambda call: call.data == 'admin_price')
+def admin_price_step1(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "غير مصرح")
+        return
+    msg = bot.send_message(call.message.chat.id, "📝 أرسل **نسبة الزيادة** المئوية (مثال: 50 يعني زيادة 50%):")
+    bot.register_next_step_handler(msg, admin_price_step2)
+    bot.answer_callback_query(call.id)
+
+def admin_price_step2(msg):
+    if msg.from_user.id != ADMIN_ID:
+        return
+    try:
+        percent = float(msg.text)
+        global PRICE_MULTIPLIER
+        PRICE_MULTIPLIER = 1 + percent / 100
+        bot.reply_to(msg, f"✅ تم تعديل نسبة الزيادة إلى {percent}% (السعر النهائي = سعر الموقع × {PRICE_MULTIPLIER:.2f})")
+    except:
+        bot.reply_to(msg, "❌ خطأ: أدخل رقماً صحيحاً. حاول مجدداً باستخدام /admin")
+
+# ========== معالجة الأزرار الرئيسية ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('main_'))
 def main_buttons(call):
     if call.data == 'main_buy':
@@ -166,23 +283,89 @@ def main_buttons(call):
     elif call.data == 'main_charge':
         bot.send_message(call.message.chat.id, f"📞 للشحن، تواصل مع المشرف: {ADMIN_USERNAME}")
         bot.answer_callback_query(call.id)
+    elif call.data.startswith('copy_acc_'):
+        acc_num = call.data.split('_')[2]
+        bot.send_message(call.message.chat.id, f"📋 تم نسخ رقم حسابك: `{acc_num}`", parse_mode='Markdown')
+        bot.answer_callback_query(call.id)
 
+# ========== معالجة الخدمات والدول مع الترجمة والتقليب ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('service_'))
 def service_callback(call):
     service_code = call.data.split('_')[1]
+    # عرض الصفحة الأولى
+    show_countries_page(call.message.chat.id, call.message.message_id, service_code, page=0)
+
+def show_countries_page(chat_id, msg_id, service_code, page):
     countries = get_countries()
     if not countries:
-        bot.answer_callback_query(call.id, "حدث خطأ في جلب الدول، حاول مجدداً.")
+        bot.send_message(chat_id, "حدث خطأ في جلب الدول، حاول مجدداً.")
         return
-    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    for c in countries[:30]:
+    
+    # ترجمة الأسماء وإضافة الأعلام
+    translated = []
+    for c in countries:
+        code = c['code']
+        if code in COUNTRIES_MAP:
+            name = COUNTRIES_MAP[code]['name']
+        else:
+            name = f"🌍 {code.upper()}"  # احتياطي للدول غير المدرجة
         price = c.get('price', 0.5) * PRICE_MULTIPLIER
-        btn_text = f"{c['name']} (${price:.2f})"
-        markup.add(telebot.types.InlineKeyboardButton(btn_text, callback_data=f"country_{c['code']}_{service_code}"))
+        translated.append({'code': code, 'display': name, 'price': price})
+    
+    # ترتيب حسب الاسم العربي
+    translated.sort(key=lambda x: x['display'])
+    
+    # تحديد الصفحة
+    items_per_page = 10
+    total_pages = (len(translated) + items_per_page - 1) // items_per_page
+    if page >= total_pages:
+        page = total_pages - 1
+    if page < 0:
+        page = 0
+    
+    start_idx = page * items_per_page
+    end_idx = min(start_idx + items_per_page, len(translated))
+    page_items = translated[start_idx:end_idx]
+    
+    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+    for item in page_items:
+        btn_text = f"{item['display']} (${item['price']:.2f})"
+        callback_data = f"country_{item['code']}_{service_code}"
+        markup.add(telebot.types.InlineKeyboardButton(btn_text, callback_data=callback_data))
+    
+    # أزرار التقليب
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(telebot.types.InlineKeyboardButton("⬅️ السابق", callback_data=f"page_{service_code}_{page-1}"))
+    if page < total_pages - 1:
+        nav_buttons.append(telebot.types.InlineKeyboardButton("التالي ➡️", callback_data=f"page_{service_code}_{page+1}"))
+    if nav_buttons:
+        markup.add(*nav_buttons)
+    
+    # زر تحديث
     markup.add(telebot.types.InlineKeyboardButton("🔄 تحديث القائمة", callback_data=f"refresh_{service_code}"))
-    bot.edit_message_text("🌍 اختر الدولة التي تريد رقمًا منها:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
+    
+    # تعديل الرسالة أو إرسالها
+    try:
+        bot.edit_message_text(f"🌍 اختر الدولة (الصفحة {page+1}/{total_pages}):", chat_id=chat_id, message_id=msg_id, reply_markup=markup)
+    except:
+        bot.send_message(chat_id, f"🌍 اختر الدولة (الصفحة {page+1}/{total_pages}):", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('page_'))
+def page_callback(call):
+    parts = call.data.split('_')
+    service_code = parts[1]
+    page = int(parts[2])
+    show_countries_page(call.message.chat.id, call.message.message_id, service_code, page)
     bot.answer_callback_query(call.id)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith('refresh_'))
+def refresh_countries(call):
+    service_code = call.data.split('_')[1]
+    show_countries_page(call.message.chat.id, call.message.message_id, service_code, page=0)
+    bot.answer_callback_query(call.id, "تم التحديث")
+
+# ========== معالجة اختيار الدولة ==========
 @bot.callback_query_handler(func=lambda call: call.data.startswith('country_'))
 def country_callback(call):
     parts = call.data.split('_')
@@ -194,7 +377,6 @@ def country_callback(call):
     final_price = original_price * PRICE_MULTIPLIER
     bal = get_balance(uid)
 
-    # التحقق من الرصيد قبل الشراء
     if bal < final_price:
         bot.answer_callback_query(call.id, f"⚠️ رصيدك غير كافٍ. تحتاج {final_price:.2f} دولار. قم بالشحن عبر {ADMIN_USERNAME}")
         return
@@ -219,7 +401,6 @@ def country_callback(call):
     """
     bot.send_message(call.message.chat.id, response_text, parse_mode='Markdown')
 
-    # إشعار للمشرف
     bot.send_message(ADMIN_ID, f"🛒 عملية شراء جديدة:\nالمستخدم: {call.from_user.first_name} (ID: {uid})\nالخدمة: {service_code}\nالدولة: {country_code}\nالرقم: {result['phone']}\nالسعر: {final_price:.2f}")
 
     markup = telebot.types.InlineKeyboardMarkup()
@@ -248,58 +429,6 @@ def cancel_callback(call):
     else:
         bot.send_message(call.message.chat.id, "❌ فشل الإلغاء.")
     bot.answer_callback_query(call.id)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('refresh_'))
-def refresh_countries(call):
-    service_code = call.data.split('_')[1]
-    countries = get_countries()
-    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    for c in countries[:30]:
-        price = c.get('price', 0.5) * PRICE_MULTIPLIER
-        btn_text = f"{c['name']} (${price:.2f})"
-        markup.add(telebot.types.InlineKeyboardButton(btn_text, callback_data=f"country_{c['code']}_{service_code}"))
-    markup.add(telebot.types.InlineKeyboardButton("🔄 تحديث القائمة", callback_data=f"refresh_{service_code}"))
-    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=markup)
-    bot.answer_callback_query(call.id, "تم تحديث القائمة")
-
-# ========== أوامر المشرف (تظهر فقط للمشرف) ==========
-@bot.message_handler(commands=['addbalance'])
-def add_balance_cmd(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    try:
-        parts = msg.text.split()
-        if len(parts) < 3:
-            bot.reply_to(msg, "❌ الاستخدام: /addbalance <user_id> <المبلغ>")
-            return
-        target_id = int(parts[1])
-        amount = float(parts[2])
-        if amount <= 0:
-            bot.reply_to(msg, "❌ المبلغ يجب أن يكون موجباً.")
-            return
-        current = get_balance(target_id)
-        new = current + amount
-        update_balance(target_id, new)
-        bot.reply_to(msg, f"✅ تم إضافة {amount} دولار للمستخدم {target_id}. الرصيد الجديد: {new:.2f}")
-        bot.send_message(target_id, f"💰 تم شحن رصيدك بمبلغ {amount} دولار. رصيدك الحالي: {new:.2f}")
-    except Exception as e:
-        bot.reply_to(msg, f"❌ خطأ: {str(e)}")
-
-@bot.message_handler(commands=['setprice'])
-def set_price_cmd(msg):
-    if msg.from_user.id != ADMIN_ID:
-        return
-    try:
-        parts = msg.text.split()
-        if len(parts) < 2:
-            bot.reply_to(msg, "الاستخدام: /setprice <النسبة المئوية> مثلاً 50 يعني زيادة 50%")
-            return
-        percent = float(parts[1])
-        global PRICE_MULTIPLIER
-        PRICE_MULTIPLIER = 1 + percent / 100
-        bot.reply_to(msg, f"✅ تم تعديل نسبة الزيادة إلى {percent}% (السعر النهائي = سعر الموقع × {PRICE_MULTIPLIER:.2f})")
-    except:
-        bot.reply_to(msg, "❌ أدخل رقماً صحيحاً.")
 
 # ========== تشغيل البوت ==========
 print("🤖 البوت يعمل...")
