@@ -8,271 +8,262 @@
 <meta
 name="viewport"
 content="width=device-width, initial-scale=1.0"
-/>
+>
 
 <title>Telegram Web</title>
 
 <link
 rel="stylesheet"
 href="/style.css"
-/>
+>
 
 </head>
 
 <body>
 
-<div id="loginPage" class="login-page">
+<!-- LOGIN -->
 
-    <div class="login-card">
+<section
+id="loginPage"
+class="login-page"
+>
 
-        <div class="logo">
-            <div class="logo-icon">
-                ✈
-            </div>
-        </div>
+<div class="login-card">
 
-        <h1>
-            Telegram
-        </h1>
+<div class="telegram-logo">
+✈
+</div>
 
-        <p class="subtitle">
-            استخدم رقم هاتفك للوصول إلى حسابك
-        </p>
+<h1>Telegram</h1>
 
-        <div id="phoneStep">
+<p>
+أدخل رقم هاتفك للوصول إلى حسابك
+</p>
 
-            <label>
-                رقم الهاتف
-            </label>
+<div
+id="phoneStep"
+>
 
-            <input
-            id="phoneInput"
-            type="tel"
-            placeholder="+967XXXXXXXXX"
-            />
+<input
+id="phoneInput"
+placeholder="+967XXXXXXXXX"
+type="tel"
+>
 
-            <button
-            id="sendCodeBtn"
-            >
-                متابعة
-            </button>
-
-        </div>
-
-        <div
-        id="codeStep"
-        class="hidden"
-        >
-
-            <p>
-                أدخل رمز التحقق
-            </p>
-
-            <input
-            id="codeInput"
-            type="text"
-            inputmode="numeric"
-            placeholder="12345"
-            />
-
-            <button
-            id="verifyCodeBtn"
-            >
-                تسجيل الدخول
-            </button>
-
-            <button
-            id="backBtn"
-            class="text-btn"
-            >
-                تغيير الرقم
-            </button>
-
-        </div>
-
-        <div
-        id="passwordStep"
-        class="hidden"
-        >
-
-            <p>
-                هذا الحساب محمي بالتحقق بخطوتين
-            </p>
-
-            <input
-            id="passwordInput"
-            type="password"
-            placeholder="كلمة المرور"
-            />
-
-            <button
-            id="verifyPasswordBtn"
-            >
-                متابعة
-            </button>
-
-        </div>
-
-        <div
-        id="status"
-        class="status"
-        ></div>
-
-    </div>
+<button
+id="sendCodeBtn"
+>
+متابعة
+</button>
 
 </div>
 
+<div
+id="codeStep"
+class="hidden"
+>
+
+<input
+id="codeInput"
+placeholder="رمز التحقق"
+type="text"
+inputmode="numeric"
+>
+
+<button
+id="verifyCodeBtn"
+>
+تسجيل الدخول
+</button>
+
+</div>
 
 <div
+id="passwordStep"
+class="hidden"
+>
+
+<input
+id="passwordInput"
+placeholder="كلمة مرور التحقق بخطوتين"
+type="password"
+>
+
+<button
+id="verifyPasswordBtn"
+>
+متابعة
+</button>
+
+</div>
+
+<p
+id="status"
+></p>
+
+</div>
+
+</section>
+
+
+<!-- MAIN APP -->
+
+<section
 id="appPage"
 class="app hidden"
 >
 
-    <aside class="sidebar">
+<!-- SIDEBAR -->
 
-        <div class="sidebar-top">
+<aside
+class="sidebar"
+>
 
-            <button
-            id="profileBtn"
-            class="icon-btn"
-            >
-                ☰
-            </button>
+<header
+class="sidebar-header"
+>
 
-            <div class="search-wrapper">
+<button
+id="settingsBtn"
+class="icon-button"
+>
+☰
+</button>
 
-                <input
-                id="searchInput"
-                type="text"
-                placeholder="بحث"
-                />
+<input
+id="searchInput"
+placeholder="بحث"
+>
 
-            </div>
+</header>
 
-        </div>
+<div
+id="dialogs"
+class="dialogs"
+></div>
 
-        <div
-        id="userBox"
-        class="user-box"
-        ></div>
-
-        <div
-        id="searchResults"
-        class="search-results hidden"
-        ></div>
-
-        <div
-        id="dialogsList"
-        class="dialogs-list"
-        ></div>
-
-    </aside>
+</aside>
 
 
-    <main class="chat">
+<!-- CHAT -->
 
-        <div
-        id="chatEmpty"
-        class="chat-empty"
-        >
+<main
+class="chat"
+>
 
-            <div class="empty-logo">
-                ✈
-            </div>
+<div
+id="emptyChat"
+class="empty-chat"
+>
 
-            <h2>
-                Telegram Web
-            </h2>
+<div class="big-logo">
+✈
+</div>
 
-            <p>
-                اختر محادثة لبدء المراسلة
-            </p>
+<h2>
+Telegram Web
+</h2>
 
-        </div>
-
-
-        <div
-        id="chatWindow"
-        class="chat-window hidden"
-        >
-
-            <header
-            id="chatHeader"
-            class="chat-header"
-            ></header>
-
-            <div
-            id="messages"
-            class="messages"
-            ></div>
-
-            <div class="composer">
-
-                <label
-                for="fileInput"
-                class="file-button"
-                >
-                    📎
-                </label>
-
-                <input
-                id="fileInput"
-                type="file"
-                hidden
-                />
-
-                <textarea
-                id="messageInput"
-                placeholder="اكتب رسالة..."
-                rows="1"
-                ></textarea>
-
-                <button
-                id="sendMessageBtn"
-                class="send-button"
-                >
-                    ➤
-                </button>
-
-            </div>
-
-        </div>
-
-    </main>
+<p>
+اختر محادثة
+</p>
 
 </div>
 
+<div
+id="chatPage"
+class="chat-page hidden"
+>
+
+<header
+id="chatHeader"
+class="chat-header"
+></header>
 
 <div
-id="profileModal"
+id="messages"
+class="messages"
+></div>
+
+<footer
+class="message-box"
+>
+
+<label
+for="fileInput"
+class="file-btn"
+>
+📎
+</label>
+
+<input
+id="fileInput"
+type="file"
+hidden
+>
+
+<textarea
+id="messageInput"
+placeholder="اكتب رسالة"
+></textarea>
+
+<button
+id="sendBtn"
+>
+➤
+</button>
+
+</footer>
+
+</div>
+
+</main>
+
+</section>
+
+
+<!-- SETTINGS -->
+
+<div
+id="settingsModal"
 class="modal hidden"
 >
 
-    <div class="modal-box">
+<div
+class="modal-box"
+>
 
-        <button
-        id="closeProfileBtn"
-        class="close-btn"
-        >
-            ×
-        </button>
+<button
+id="closeSettings"
+class="close"
+>
+×
+</button>
 
-        <h2>
-            حسابي
-        </h2>
+<h2>
+الإعدادات
+</h2>
 
-        <div
-        id="profileContent"
-        ></div>
+<div
+id="profileInfo"
+></div>
 
-        <button
-        id="logoutBtn"
-        class="logout-btn"
-        >
-            تسجيل الخروج
-        </button>
+<hr>
 
-    </div>
+<button
+id="darkModeBtn"
+>
+🌙 الوضع الداكن
+</button>
+
+<button
+id="logoutBtn"
+class="danger"
+>
+تسجيل الخروج
+</button>
+
+</div>
 
 </div>
 
