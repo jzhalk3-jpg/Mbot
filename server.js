@@ -2,14 +2,13 @@ import express from "express";
 import session from "express-session";
 import dotenv from "dotenv";
 import multer from "multer";
-import path from "path";
 import fs from "fs";
+import path from "path";
 import { fileURLToPath } from "url";
 
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
 import { Api } from "telegram";
-import { NewMessage } from "telegram/events/index.js";
 
 dotenv.config();
 
@@ -19,21 +18,29 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 const PORT = process.env.PORT || 3000;
+
 const API_ID = Number(process.env.API_ID);
 const API_HASH = process.env.API_HASH;
 
 if (!API_ID || !API_HASH) {
-  console.error("ERROR: API_ID or API_HASH is missing in .env");
+  console.error("Missing Telegram API credentials");
   process.exit(1);
 }
 
-const uploadsPath = path.join(__dirname, "uploads");
+const uploadDir = path.join(
+  __dirname,
+  "uploads"
+);
 
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath);
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
 }
 
-app.use(express.json({ limit: "10mb" }));
+app.use(
+  express.json({
+    limit: "10mb"
+  })
+);
 
 app.use(
   express.urlencoded({
@@ -45,75 +52,88 @@ app.use(
   session({
     secret:
       process.env.SESSION_SECRET ||
-      "telegram-web-secret-change-this",
+      "change-this-secret",
     resave: false,
     saveUninitialized: true,
     cookie: {
-      httpOnly: true,
       secure: false,
+      httpOnly: true,
       sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24 * 30
+      maxAge:
+        1000 *
+        60 *
+        60 *
+        24 *
+        30
     }
   })
 );
 
 const upload = multer({
-  dest: uploadsPath,
+  dest: uploadDir,
   limits: {
-    fileSize: 50 * 1024 * 1024
+    fileSize:
+      50 *
+      1024 *
+      1024
   }
 });
 
 const clients = new Map();
 
-function formatError(error) {
+function errorMessage(error) {
   console.error(error);
 
   return (
     error?.errorMessage ||
     error?.message ||
-    "حدث خطأ غير متوقع"
+    "حدث خطأ"
   );
 }
 
-function cleanPhone(phone) {
-  return String(phone || "")
-    .trim()
-    .replace(/[^\d+]/g, "");
-}
-
-function getClient(sessionId, sessionString = "") {
+function getClient(
+  sessionId,
+  savedSession = ""
+) {
   if (clients.has(sessionId)) {
     return clients.get(sessionId);
   }
 
-  const client = new TelegramClient(
-    new StringSession(sessionString),
-    API_ID,
-    API_HASH,
-    {
-      connectionRetries: 5,
-      useWSS: false
-    }
-  );
+  const client =
+    new TelegramClient(
+      new StringSession(
+        savedSession
+      ),
+      API_ID,
+      API_HASH,
+      {
+        connectionRetries: 5
+      }
+    );
 
-  clients.set(sessionId, client);
+  clients.set(
+    sessionId,
+    client
+  );
 
   return client;
 }
 
-async function ensureClient(req) {
-  const sessionString =
-    req.session.telegramSession;
-
-  if (!sessionString) {
-    throw new Error("UNAUTHORIZED");
+async function requireClient(req) {
+  if (
+    !req.session.telegramSession
+  ) {
+    throw new Error(
+      "UNAUTHORIZED"
+    );
   }
 
-  const client = getClient(
-    req.sessionID,
-    sessionString
-  );
+  const client =
+    getClient(
+      req.sessionID,
+      req.session
+        .telegramSession
+    );
 
   if (!client.connected) {
     await client.connect();
@@ -123,22 +143,32 @@ async function ensureClient(req) {
     await client.checkAuthorization();
 
   if (!authorized) {
-    throw new Error("UNAUTHORIZED");
+    throw new Error(
+      "UNAUTHORIZED"
+    );
   }
 
   return client;
 }
 
-function getEntityName(entity) {
-  if (!entity) return "Unknown";
+function cleanPhone(phone) {
+  return String(phone || "")
+    .replace(/[^\d+]/g, "")
+    .trim();
+}
 
-  if (entity.firstName || entity.lastName) {
-    return `${entity.firstName || ""} ${
-      entity.lastName || ""
-    }`.trim();
+function nameOf(entity) {
+  if (!entity) {
+    return "Telegram";
   }
 
+  const name =
+    `${entity.firstName || ""} ${
+      entity.lastName || ""
+    }`.trim();
+
   return (
+    name ||
     entity.title ||
     entity.username ||
     "Telegram"
@@ -147,55 +177,29 @@ function getEntityName(entity) {
 
 function serializeMessage(message) {
   return {
-    id: message.id,
-    message: message.message || "",
-    date: message.date
-      ? new Date(
-          message.date
-        ).toISOString()
-      : null,
-    out: Boolean(message.out),
-    senderId:
-      message.senderId?.toString() || null,
-    media: Boolean(message.media),
-    photo:
-      message.photo ? true : false,
-    document:
-      message.document ? true : false,
-    fileName:
-      message.document?.attributes
-        ?.find(
-          attribute =>
-            attribute.className ===
-            "DocumentAttributeFilename"
-        )
-        ?.fileName || null
-  };
-}
-
-function serializeDialog(dialog) {
-  const entity = dialog.entity;
-
-  return {
-    id: entity.id?.toString(),
-    name: getEntityName(entity),
-    username: entity.username || "",
-    type: entity.className || "",
-    unreadCount:
-      dialog.unreadCount || 0,
-    lastMessage:
-      dialog.message?.message || "",
-    lastMessageDate:
-      dialog.message?.date
+    id:
+      message.id,
+    text:
+      message.message || "",
+    out:
+      Boolean(message.out),
+    date:
+      message.date
         ? new Date(
-            dialog.message.date
+            message.date
           ).toISOString()
-        : null
+        : null,
+    media:
+      Boolean(message.media),
+    photo:
+      Boolean(message.photo),
+    document:
+      Boolean(message.document)
   };
 }
 
-/* ================================
-   LOGIN
+/* ===============================
+   SEND LOGIN CODE
 ================================ */
 
 app.post(
@@ -203,7 +207,9 @@ app.post(
   async (req, res) => {
     try {
       const phone =
-        cleanPhone(req.body.phone);
+        cleanPhone(
+          req.body.phone
+        );
 
       if (!phone) {
         return res.status(400).json({
@@ -213,9 +219,10 @@ app.post(
         });
       }
 
-      const client = getClient(
-        req.sessionID
-      );
+      const client =
+        getClient(
+          req.sessionID
+        );
 
       if (!client.connected) {
         await client.connect();
@@ -224,8 +231,10 @@ app.post(
       const result =
         await client.sendCode(
           {
-            apiId: API_ID,
-            apiHash: API_HASH
+            apiId:
+              API_ID,
+            apiHash:
+              API_HASH
           },
           phone
         );
@@ -236,27 +245,21 @@ app.post(
       req.session.phoneCodeHash =
         result.phoneCodeHash;
 
-      req.session.save(() => {});
-
       res.json({
-        success: true,
-        message:
-          "تم إرسال رمز التحقق",
-        viaApp:
-          result.isCodeViaApp
+        success: true
       });
 
     } catch (error) {
       res.status(500).json({
         success: false,
         message:
-          formatError(error)
+          errorMessage(error)
       });
     }
   }
 );
 
-/* ================================
+/* ===============================
    VERIFY CODE
 ================================ */
 
@@ -264,104 +267,79 @@ app.post(
   "/api/auth/verify-code",
   async (req, res) => {
     try {
-      const code =
-        String(
-          req.body.code || ""
-        ).trim();
-
       const phone =
         req.session.loginPhone;
 
       const phoneCodeHash =
         req.session.phoneCodeHash;
 
+      const code =
+        String(
+          req.body.code || ""
+        ).trim();
+
       if (
         !phone ||
         !phoneCodeHash
       ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "اطلب رمزًا جديدًا"
-        });
-      }
-
-      if (!code) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "أدخل رمز التحقق"
-        });
+        throw new Error(
+          "اطلب رمزًا جديدًا"
+        );
       }
 
       const client =
-        getClient(req.sessionID);
-
-      const result =
-        await client.invoke(
-          new Api.auth.SignIn({
-            phoneNumber: phone,
-            phoneCodeHash,
-            phoneCode: code
-          })
+        getClient(
+          req.sessionID
         );
 
-      const savedSession =
-        client.session.save();
+      await client.invoke(
+        new Api.auth.SignIn({
+          phoneNumber:
+            phone,
+          phoneCodeHash,
+          phoneCode:
+            code
+        })
+      );
 
       req.session.telegramSession =
-        savedSession;
+        client.session.save();
 
-      req.session.loginPhone = null;
+      req.session.loginPhone =
+        null;
 
       req.session.phoneCodeHash =
         null;
 
       res.json({
-        success: true,
-        passwordRequired: false,
-        user: {
-          id:
-            result.user.id?.toString(),
-          firstName:
-            result.user.firstName || "",
-          lastName:
-            result.user.lastName || "",
-          username:
-            result.user.username || ""
-        }
+        success: true
       });
 
     } catch (error) {
-      const errorText =
-        error?.errorMessage ||
-        error?.message ||
-        "";
+      const message =
+        errorMessage(error);
 
       if (
-        errorText.includes(
+        message.includes(
           "SESSION_PASSWORD_NEEDED"
         )
       ) {
         return res.status(401).json({
           success: false,
-          passwordRequired: true,
-          message:
-            "هذا الحساب يستخدم التحقق بخطوتين"
+          passwordRequired: true
         });
       }
 
       res.status(500).json({
         success: false,
-        message:
-          formatError(error)
+        message
       });
     }
   }
 );
 
-/* ================================
-   2FA
+/* ===============================
+   VERIFY PASSWORD
 ================================ */
 
 app.post(
@@ -373,92 +351,56 @@ app.post(
           req.body.password || ""
         );
 
-      if (!password) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "أدخل كلمة المرور"
-        });
-      }
-
       const client =
-        getClient(req.sessionID);
-
-      if (!client.connected) {
-        await client.connect();
-      }
+        getClient(
+          req.sessionID
+        );
 
       await client.signInWithPassword(
         {
-          apiId: API_ID,
-          apiHash: API_HASH
+          apiId:
+            API_ID,
+          apiHash:
+            API_HASH
         },
         {
-          password: async () =>
-            password,
-
-          onError: async error => {
-            throw error;
-          }
+          password:
+            async () =>
+              password,
+          onError:
+            async error => {
+              throw error;
+            }
         }
       );
 
-      const savedSession =
+      req.session.telegramSession =
         client.session.save();
 
-      req.session.telegramSession =
-        savedSession;
-
-      req.session.loginPhone = null;
-
-      req.session.phoneCodeHash =
-        null;
-
-      const me =
-        await client.getMe();
-
       res.json({
-        success: true,
-        user: {
-          id:
-            me.id?.toString(),
-          firstName:
-            me.firstName || "",
-          lastName:
-            me.lastName || "",
-          username:
-            me.username || ""
-        }
+        success: true
       });
 
     } catch (error) {
       res.status(500).json({
         success: false,
         message:
-          formatError(error)
+          errorMessage(error)
       });
     }
   }
 );
 
-/* ================================
-   CURRENT USER
+/* ===============================
+   GET CURRENT USER
 ================================ */
 
 app.get(
   "/api/me",
   async (req, res) => {
     try {
-      if (
-        !req.session.telegramSession
-      ) {
-        return res.json({
-          authenticated: false
-        });
-      }
-
       const client =
-        await ensureClient(req);
+        await requireClient(req);
 
       const me =
         await client.getMe();
@@ -468,10 +410,8 @@ app.get(
         user: {
           id:
             me.id?.toString(),
-          firstName:
-            me.firstName || "",
-          lastName:
-            me.lastName || "",
+          name:
+            nameOf(me),
           username:
             me.username || "",
           phone:
@@ -479,10 +419,7 @@ app.get(
         }
       });
 
-    } catch (error) {
-      req.session.telegramSession =
-        null;
-
+    } catch {
       res.json({
         authenticated: false
       });
@@ -490,7 +427,7 @@ app.get(
   }
 );
 
-/* ================================
+/* ===============================
    DIALOGS
 ================================ */
 
@@ -499,71 +436,69 @@ app.get(
   async (req, res) => {
     try {
       const client =
-        await ensureClient(req);
+        await requireClient(req);
 
       const dialogs =
         await client.getDialogs({
           limit: 100
         });
 
-      const result =
-        dialogs.map(
-          serializeDialog
-        );
-
       res.json({
         success: true,
-        dialogs: result
+        dialogs:
+          dialogs.map(
+            dialog => ({
+              id:
+                dialog.entity.id.toString(),
+              name:
+                nameOf(
+                  dialog.entity
+                ),
+              unread:
+                dialog.unreadCount ||
+                0,
+              lastMessage:
+                dialog.message
+                  ?.message ||
+                ""
+            })
+          )
       });
 
     } catch (error) {
-      res.status(401).json({
+      res.status(500).json({
         success: false,
         message:
-          formatError(error)
+          errorMessage(error)
       });
     }
   }
 );
 
-/* ================================
+/* ===============================
    MESSAGES
 ================================ */
 
 app.get(
-  "/api/messages/:dialogId",
+  "/api/messages/:id",
   async (req, res) => {
     try {
       const client =
-        await ensureClient(req);
-
-      const dialogId =
-        req.params.dialogId;
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) ||
-          50,
-          100
-        );
+        await requireClient(req);
 
       const entity =
         await client.getEntity(
-          dialogId
+          req.params.id
         );
 
       const messages =
         await client.getMessages(
           entity,
           {
-            limit,
+            limit: 100,
             reverse: true
           }
         );
-
-      await client.markAsRead(
-        entity
-      );
 
       res.json({
         success: true,
@@ -577,104 +512,98 @@ app.get(
       res.status(500).json({
         success: false,
         message:
-          formatError(error)
+          errorMessage(error)
       });
     }
   }
 );
 
-/* ================================
+/* ===============================
    SEND MESSAGE
 ================================ */
 
 app.post(
-  "/api/messages/:dialogId",
+  "/api/messages/:id",
   async (req, res) => {
     try {
       const client =
-        await ensureClient(req);
-
-      const dialogId =
-        req.params.dialogId;
+        await requireClient(req);
 
       const text =
         String(
-          req.body.message || ""
+          req.body.text || ""
         ).trim();
 
       if (!text) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "الرسالة فارغة"
-        });
+        throw new Error(
+          "الرسالة فارغة"
+        );
       }
 
       const entity =
         await client.getEntity(
-          dialogId
+          req.params.id
         );
 
       const message =
         await client.sendMessage(
           entity,
           {
-            message: text
+            message:
+              text
           }
         );
 
       res.json({
         success: true,
         message:
-          serializeMessage(message)
+          serializeMessage(
+            message
+          )
       });
 
     } catch (error) {
       res.status(500).json({
         success: false,
         message:
-          formatError(error)
+          errorMessage(error)
       });
     }
   }
 );
 
-/* ================================
+/* ===============================
    SEND FILE
 ================================ */
 
 app.post(
-  "/api/upload/:dialogId",
+  "/api/files/:id",
   upload.single("file"),
   async (req, res) => {
     try {
       const client =
-        await ensureClient(req);
-
-      const dialogId =
-        req.params.dialogId;
+        await requireClient(req);
 
       if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "لم يتم اختيار ملف"
-        });
+        throw new Error(
+          "اختر ملفًا"
+        );
       }
 
       const entity =
         await client.getEntity(
-          dialogId
+          req.params.id
         );
 
       const message =
         await client.sendFile(
           entity,
           {
-            file: req.file.path,
+            file:
+              req.file.path,
             caption:
-              req.body.caption || "",
-            forceDocument: false
+              req.body.caption ||
+              ""
           }
         );
 
@@ -686,27 +615,22 @@ app.post(
       res.json({
         success: true,
         message:
-          serializeMessage(message)
+          serializeMessage(
+            message
+          )
       });
 
     } catch (error) {
-      if (req.file?.path) {
-        fs.unlink(
-          req.file.path,
-          () => {}
-        );
-      }
-
       res.status(500).json({
         success: false,
         message:
-          formatError(error)
+          errorMessage(error)
       });
     }
   }
 );
 
-/* ================================
+/* ===============================
    SEARCH
 ================================ */
 
@@ -715,49 +639,46 @@ app.get(
   async (req, res) => {
     try {
       const client =
-        await ensureClient(req);
+        await requireClient(req);
 
       const query =
         String(
           req.query.q || ""
         ).trim();
 
-      if (!query) {
-        return res.json({
-          success: true,
-          results: []
-        });
-      }
-
       const result =
         await client.invoke(
           new Api.contacts.Search({
-            q: query,
-            limit: 20
+            q:
+              query,
+            limit:
+              20
           })
         );
 
       const users =
-        result.users.map(user => ({
-          id:
-            user.id?.toString(),
-          name:
-            getEntityName(user),
-          username:
-            user.username || "",
-          type: "user"
-        }));
+        result.users.map(
+          user => ({
+            id:
+              user.id.toString(),
+            name:
+              nameOf(user),
+            username:
+              user.username || ""
+          })
+        );
 
       const chats =
-        result.chats.map(chat => ({
-          id:
-            chat.id?.toString(),
-          name:
-            getEntityName(chat),
-          username:
-            chat.username || "",
-          type: "chat"
-        }));
+        result.chats.map(
+          chat => ({
+            id:
+              chat.id.toString(),
+            name:
+              nameOf(chat),
+            username:
+              chat.username || ""
+          })
+        );
 
       res.json({
         success: true,
@@ -771,74 +692,43 @@ app.get(
       res.status(500).json({
         success: false,
         message:
-          formatError(error)
+          errorMessage(error)
       });
     }
   }
 );
 
-/* ================================
+/* ===============================
    LOGOUT
 ================================ */
 
 app.post(
   "/api/logout",
   async (req, res) => {
-    try {
-      const client =
-        clients.get(
-          req.sessionID
-        );
-
-      if (client) {
-        try {
-          await client.disconnect();
-        } catch {}
-      }
-
-      clients.delete(
+    const client =
+      clients.get(
         req.sessionID
       );
 
-      req.session.destroy(() => {
+    if (client) {
+      try {
+        await client.disconnect();
+      } catch {}
+    }
+
+    clients.delete(
+      req.sessionID
+    );
+
+    req.session.destroy(
+      () => {
         res.json({
           success: true
         });
-      });
-
-    } catch (error) {
-      res.json({
-        success: true
-      });
-    }
+      }
+    );
   }
 );
-
-/* ================================
-   LIVE UPDATES
-================================ */
-
-function attachLiveUpdates(
-  client,
-  sessionId
-) {
-  if (client.__liveUpdatesAttached) {
-    return;
-  }
-
-  client.__liveUpdatesAttached = true;
-
-  client.addEventHandler(
-    async event => {
-      console.log(
-        "New Telegram message",
-        sessionId,
-        event.message?.id
-      );
-    },
-    new NewMessage({})
-  );
-}
 
 app.use(
   express.static(
@@ -849,24 +739,11 @@ app.use(
   )
 );
 
-app.get(
-  "*",
-  (req, res) => {
-    res.sendFile(
-      path.join(
-        __dirname,
-        "public",
-        "index.html"
-      )
-    );
-  }
-);
-
 app.listen(
   PORT,
   () => {
     console.log(
-      `Telegram Web running on port ${PORT}`
+      `Server running on port ${PORT}`
     );
   }
 );
