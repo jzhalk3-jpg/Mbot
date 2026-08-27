@@ -1,120 +1,118 @@
 const loginPage =
-  document.getElementById("loginPage");
+  document.getElementById(
+    "loginPage"
+  );
 
 const appPage =
-  document.getElementById("appPage");
+  document.getElementById(
+    "appPage"
+  );
 
 const phoneStep =
-  document.getElementById("phoneStep");
+  document.getElementById(
+    "phoneStep"
+  );
 
 const codeStep =
-  document.getElementById("codeStep");
+  document.getElementById(
+    "codeStep"
+  );
 
 const passwordStep =
-  document.getElementById("passwordStep");
+  document.getElementById(
+    "passwordStep"
+  );
 
 const phoneInput =
-  document.getElementById("phoneInput");
+  document.getElementById(
+    "phoneInput"
+  );
 
 const codeInput =
-  document.getElementById("codeInput");
+  document.getElementById(
+    "codeInput"
+  );
 
 const passwordInput =
-  document.getElementById("passwordInput");
-
-const sendCodeBtn =
-  document.getElementById("sendCodeBtn");
-
-const verifyCodeBtn =
-  document.getElementById("verifyCodeBtn");
-
-const verifyPasswordBtn =
   document.getElementById(
-    "verifyPasswordBtn"
+    "passwordInput"
   );
 
-const backBtn =
-  document.getElementById("backBtn");
+const status =
+  document.getElementById(
+    "status"
+  );
 
-const statusBox =
-  document.getElementById("status");
-
-const dialogsList =
-  document.getElementById("dialogsList");
+const dialogs =
+  document.getElementById(
+    "dialogs"
+  );
 
 const searchInput =
-  document.getElementById("searchInput");
-
-const searchResults =
   document.getElementById(
-    "searchResults"
+    "searchInput"
   );
 
-const chatEmpty =
-  document.getElementById("chatEmpty");
+const emptyChat =
+  document.getElementById(
+    "emptyChat"
+  );
 
-const chatWindow =
-  document.getElementById("chatWindow");
+const chatPage =
+  document.getElementById(
+    "chatPage"
+  );
 
 const chatHeader =
-  document.getElementById("chatHeader");
+  document.getElementById(
+    "chatHeader"
+  );
 
-const messagesBox =
-  document.getElementById("messages");
+const messages =
+  document.getElementById(
+    "messages"
+  );
 
 const messageInput =
   document.getElementById(
     "messageInput"
   );
 
-const sendMessageBtn =
-  document.getElementById(
-    "sendMessageBtn"
-  );
-
 const fileInput =
-  document.getElementById("fileInput");
-
-const userBox =
-  document.getElementById("userBox");
-
-const profileBtn =
-  document.getElementById("profileBtn");
-
-const profileModal =
   document.getElementById(
-    "profileModal"
+    "fileInput"
   );
 
-const closeProfileBtn =
+const settingsModal =
   document.getElementById(
-    "closeProfileBtn"
+    "settingsModal"
   );
 
-const profileContent =
-  document.getElementById(
-    "profileContent"
-  );
+let currentDialog =
+  null;
 
-const logoutBtn =
-  document.getElementById("logoutBtn");
+let currentUser =
+  null;
 
-let currentDialog = null;
+let dialogList =
+  [];
 
-let currentUser = null;
+function setStatus(text) {
+  status.textContent =
+    text || "";
+}
 
-let allDialogs = [];
-
-function setStatus(
-  text,
-  success = false
+async function request(
+  url,
+  options = {}
 ) {
-  statusBox.textContent = text;
+  const response =
+    await fetch(
+      url,
+      options
+    );
 
-  statusBox.style.color =
-    success
-      ? "#2e7d32"
-      : "#e53935";
+  return response.json();
 }
 
 function showLogin() {
@@ -123,18 +121,6 @@ function showLogin() {
   );
 
   loginPage.classList.remove(
-    "hidden"
-  );
-
-  phoneStep.classList.remove(
-    "hidden"
-  );
-
-  codeStep.classList.add(
-    "hidden"
-  );
-
-  passwordStep.classList.add(
     "hidden"
   );
 }
@@ -149,48 +135,19 @@ function showApp() {
   );
 }
 
-async function api(
-  url,
-  options = {}
-) {
-  const response =
-    await fetch(
-      url,
-      options
-    );
+/* LOGIN */
 
-  return response.json();
-}
-
-/* ==========================
-   SEND CODE
-========================== */
-
-sendCodeBtn.addEventListener(
-  "click",
+document
+  .getElementById(
+    "sendCodeBtn"
+  )
+  .onclick =
   async () => {
-
-    const phone =
-      phoneInput.value.trim();
-
-    if (!phone) {
-      return setStatus(
-        "أدخل رقم الهاتف"
-      );
-    }
 
     try {
 
-      sendCodeBtn.disabled =
-        true;
-
-      sendCodeBtn.textContent =
-        "جاري الإرسال...";
-
-      setStatus("");
-
       const data =
-        await api(
+        await request(
           "/api/auth/send-code",
           {
             method: "POST",
@@ -202,7 +159,8 @@ sendCodeBtn.addEventListener(
 
             body:
               JSON.stringify({
-                phone
+                phone:
+                  phoneInput.value
               })
           }
         );
@@ -222,8 +180,7 @@ sendCodeBtn.addEventListener(
       );
 
       setStatus(
-        "تم إرسال رمز التحقق",
-        true
+        "تم إرسال رمز التحقق"
       );
 
     } catch (error) {
@@ -231,43 +188,20 @@ sendCodeBtn.addEventListener(
       setStatus(
         error.message
       );
-
-    } finally {
-
-      sendCodeBtn.disabled =
-        false;
-
-      sendCodeBtn.textContent =
-        "متابعة";
     }
+  };
 
-  }
-);
-
-/* ==========================
-   VERIFY CODE
-========================== */
-
-verifyCodeBtn.addEventListener(
-  "click",
+document
+  .getElementById(
+    "verifyCodeBtn"
+  )
+  .onclick =
   async () => {
-
-    const code =
-      codeInput.value.trim();
-
-    if (!code) {
-      return setStatus(
-        "أدخل رمز التحقق"
-      );
-    }
 
     try {
 
-      verifyCodeBtn.disabled =
-        true;
-
       const data =
-        await api(
+        await request(
           "/api/auth/verify-code",
           {
             method: "POST",
@@ -279,7 +213,8 @@ verifyCodeBtn.addEventListener(
 
             body:
               JSON.stringify({
-                code
+                code:
+                  codeInput.value
               })
           }
         );
@@ -287,6 +222,7 @@ verifyCodeBtn.addEventListener(
       if (
         data.passwordRequired
       ) {
+
         codeStep.classList.add(
           "hidden"
         );
@@ -304,44 +240,27 @@ verifyCodeBtn.addEventListener(
         );
       }
 
-      await startApp();
+      startApp();
 
     } catch (error) {
 
       setStatus(
         error.message
       );
-
-    } finally {
-
-      verifyCodeBtn.disabled =
-        false;
     }
+  };
 
-  }
-);
-
-/* ==========================
-   VERIFY 2FA
-========================== */
-
-verifyPasswordBtn.addEventListener(
-  "click",
+document
+  .getElementById(
+    "verifyPasswordBtn"
+  )
+  .onclick =
   async () => {
-
-    const password =
-      passwordInput.value;
-
-    if (!password) {
-      return setStatus(
-        "أدخل كلمة المرور"
-      );
-    }
 
     try {
 
       const data =
-        await api(
+        await request(
           "/api/auth/verify-password",
           {
             method: "POST",
@@ -353,7 +272,8 @@ verifyPasswordBtn.addEventListener(
 
             body:
               JSON.stringify({
-                password
+                password:
+                  passwordInput.value
               })
           }
         );
@@ -364,7 +284,7 @@ verifyPasswordBtn.addEventListener(
         );
       }
 
-      await startApp();
+      startApp();
 
     } catch (error) {
 
@@ -372,34 +292,16 @@ verifyPasswordBtn.addEventListener(
         error.message
       );
     }
+  };
 
-  }
-);
-
-backBtn.addEventListener(
-  "click",
-  () => {
-
-    codeStep.classList.add(
-      "hidden"
-    );
-
-    phoneStep.classList.remove(
-      "hidden"
-    );
-
-    setStatus("");
-  }
-);
-
-/* ==========================
-   START APP
-========================== */
+/* START */
 
 async function startApp() {
 
   const data =
-    await api("/api/me");
+    await request(
+      "/api/me"
+    );
 
   if (!data.authenticated) {
     return showLogin();
@@ -410,229 +312,188 @@ async function startApp() {
 
   showApp();
 
-  renderUser();
-
-  await loadDialogs();
+  loadDialogs();
 }
 
-/* ==========================
-   USER
-========================== */
-
-function renderUser() {
-
-  const name =
-    `${currentUser.firstName || ""} ${
-      currentUser.lastName || ""
-    }`.trim();
-
-  userBox.textContent =
-    `مرحبًا ${name || "مستخدم Telegram"}`;
-}
-
-/* ==========================
-   DIALOGS
-========================== */
+/* DIALOGS */
 
 async function loadDialogs() {
 
-  dialogsList.innerHTML =
-    "<p style='padding:20px'>جاري التحميل...</p>";
+  dialogs.innerHTML =
+    "جاري تحميل المحادثات...";
 
-  try {
-
-    const data =
-      await api(
-        "/api/dialogs"
-      );
-
-    if (!data.success) {
-      throw new Error(
-        data.message
-      );
-    }
-
-    allDialogs =
-      data.dialogs;
-
-    renderDialogs(
-      allDialogs
+  const data =
+    await request(
+      "/api/dialogs"
     );
 
-  } catch (error) {
-
-    dialogsList.innerHTML =
-      "<p style='padding:20px'>تعذر تحميل المحادثات</p>";
-  }
-}
-
-function renderDialogs(dialogs) {
-
-  if (!dialogs.length) {
-    dialogsList.innerHTML =
-      "<p style='padding:20px'>لا توجد محادثات</p>";
+  if (!data.success) {
+    dialogs.innerHTML =
+      "حدث خطأ";
 
     return;
   }
 
-  dialogsList.innerHTML =
-    dialogs.map(
-      dialog => {
+  dialogList =
+    data.dialogs;
 
-        const initial =
-          (dialog.name || "T")
-            .charAt(0)
-            .toUpperCase();
+  renderDialogs(
+    dialogList
+  );
+}
 
-        const unread =
-          dialog.unreadCount > 0
-            ? `
-              <div class="unread">
-                ${dialog.unreadCount}
-              </div>
-              `
-            : "";
+function renderDialogs(list) {
 
-        return `
-        <div
-        class="dialog"
-        data-id="${dialog.id}"
-        data-name="${escapeHtml(
-          dialog.name
-        )}"
-        >
+  dialogs.innerHTML =
+    "";
 
-          <div class="dialog-avatar">
-            ${initial}
+  list.forEach(
+    dialog => {
+
+      const item =
+        document.createElement(
+          "div"
+        );
+
+      item.className =
+        "dialog";
+
+      const firstLetter =
+        dialog.name
+          .charAt(0)
+          .toUpperCase();
+
+      item.innerHTML =
+        `
+        <div class="avatar">
+          ${firstLetter}
+        </div>
+
+        <div class="dialog-info">
+
+          <div class="dialog-name">
+            ${escapeHtml(
+              dialog.name
+            )}
           </div>
 
-          <div class="dialog-main">
-
-            <div class="dialog-name">
-              ${escapeHtml(
-                dialog.name
-              )}
-            </div>
-
-            <div class="dialog-last">
-              ${escapeHtml(
-                dialog.lastMessage ||
-                ""
-              )}
-            </div>
-
+          <div class="last-message">
+            ${escapeHtml(
+              dialog.lastMessage
+            )}
           </div>
-
-          ${unread}
 
         </div>
         `;
-      }
-    ).join("");
 
-  document
-    .querySelectorAll(".dialog")
-    .forEach(
-      element => {
+      item.onclick =
+        () =>
+          openDialog(
+            dialog
+          );
 
-        element.addEventListener(
-          "click",
-          () => {
-
-            openChat(
-              element.dataset.id,
-              element.dataset.name
-            );
-
-          }
-        );
-      }
-    );
+      dialogs.appendChild(
+        item
+      );
+    }
+  );
 }
 
-/* ==========================
-   OPEN CHAT
-========================== */
+/* SEARCH */
 
-async function openChat(
-  id,
-  name
-) {
+searchInput.oninput =
+  () => {
 
-  currentDialog = {
-    id,
-    name
+    const value =
+      searchInput.value
+        .toLowerCase()
+        .trim();
+
+    const filtered =
+      dialogList.filter(
+        dialog =>
+          dialog.name
+            .toLowerCase()
+            .includes(
+              value
+            )
+      );
+
+    renderDialogs(
+      filtered
+    );
   };
 
-  chatEmpty.classList.add(
+/* OPEN CHAT */
+
+async function openDialog(
+  dialog
+) {
+
+  currentDialog =
+    dialog;
+
+  emptyChat.classList.add(
     "hidden"
   );
 
-  chatWindow.classList.remove(
+  chatPage.classList.remove(
     "hidden"
   );
 
   chatHeader.textContent =
-    name;
+    dialog.name;
 
-  messagesBox.innerHTML =
-    "<p>جاري تحميل الرسائل...</p>";
+  messages.innerHTML =
+    "جاري تحميل الرسائل...";
 
-  try {
-
-    const data =
-      await api(
-        `/api/messages/${encodeURIComponent(
-          id
-        )}`
-      );
-
-    if (!data.success) {
-      throw new Error(
-        data.message
-      );
-    }
-
-    renderMessages(
-      data.messages
+  const data =
+    await request(
+      `/api/messages/${encodeURIComponent(
+        dialog.id
+      )}`
     );
 
-  } catch (error) {
+  if (!data.success) {
 
-    messagesBox.innerHTML =
-      "<p>تعذر تحميل الرسائل</p>";
+    messages.innerHTML =
+      "تعذر تحميل الرسائل";
+
+    return;
   }
+
+  renderMessages(
+    data.messages
+  );
 }
 
-/* ==========================
-   MESSAGES
-========================== */
+/* RENDER MESSAGES */
 
-function renderMessages(messages) {
+function renderMessages(list) {
 
-  messagesBox.innerHTML = "";
+  messages.innerHTML =
+    "";
 
-  messages.forEach(
-    message => {
-
-      appendMessage(
+  list.forEach(
+    message =>
+      addMessage(
         message
-      );
-
-    }
+      )
   );
 
-  scrollMessages();
+  scrollBottom();
 }
 
-function appendMessage(
+function addMessage(
   message
 ) {
 
-  const element =
-    document.createElement("div");
+  const item =
+    document.createElement(
+      "div"
+    );
 
-  element.className =
+  item.className =
     "message" +
     (
       message.out
@@ -640,87 +501,65 @@ function appendMessage(
         : ""
     );
 
-  let content =
-    "";
+  if (message.text) {
 
-  if (message.message) {
-    content =
-      escapeHtml(
-        message.message
-      );
+    item.textContent =
+      message.text;
+
+  } else if (
+    message.photo
+  ) {
+
+    item.textContent =
+      "📷 صورة";
+
+  } else if (
+    message.document
+  ) {
+
+    item.textContent =
+      "📎 ملف";
+
+  } else {
+
+    item.textContent =
+      "رسالة";
   }
 
-  if (message.photo) {
-    content +=
-      "<div class='file-message'>📷 صورة</div>";
-  }
-
-  if (message.document) {
-    content +=
-      `<div class='file-message'>
-        📎 ${
-          escapeHtml(
-            message.fileName ||
-            "ملف"
-          )
-        }
-      </div>`;
-  }
-
-  const date =
-    message.date
-      ? new Date(
-          message.date
-        ).toLocaleTimeString(
-          "ar"
-        )
-      : "";
-
-  element.innerHTML =
-    `
-    <div>
-      ${content}
-    </div>
-
-    <span class="message-time">
-      ${date}
-    </span>
-    `;
-
-  messagesBox.appendChild(
-    element
+  messages.appendChild(
+    item
   );
 }
 
-function scrollMessages() {
+function scrollBottom() {
 
-  messagesBox.scrollTop =
-    messagesBox.scrollHeight;
+  messages.scrollTop =
+    messages.scrollHeight;
 }
 
-/* ==========================
-   SEND TEXT
-========================== */
+/* SEND MESSAGE */
 
-sendMessageBtn.addEventListener(
-  "click",
-  sendMessage
-);
+document
+  .getElementById(
+    "sendBtn"
+  )
+  .onclick =
+  sendMessage;
 
-messageInput.addEventListener(
-  "keydown",
+messageInput.onkeydown =
   event => {
 
     if (
-      event.key === "Enter" &&
+      event.key ===
+        "Enter" &&
       !event.shiftKey
     ) {
+
       event.preventDefault();
 
       sendMessage();
     }
-  }
-);
+  };
 
 async function sendMessage() {
 
@@ -728,19 +567,20 @@ async function sendMessage() {
     return;
   }
 
-  const message =
+  const text =
     messageInput.value.trim();
 
-  if (!message) {
+  if (!text) {
     return;
   }
 
-  messageInput.value = "";
+  messageInput.value =
+    "";
 
   try {
 
     const data =
-      await api(
+      await request(
         `/api/messages/${encodeURIComponent(
           currentDialog.id
         )}`,
@@ -754,7 +594,7 @@ async function sendMessage() {
 
           body:
             JSON.stringify({
-              message
+              text
             })
         }
       );
@@ -765,27 +605,23 @@ async function sendMessage() {
       );
     }
 
-    appendMessage(
+    addMessage(
       data.message
     );
 
-    scrollMessages();
+    scrollBottom();
 
   } catch (error) {
 
     alert(
-      error.message ||
-      "فشل إرسال الرسالة"
+      error.message
     );
   }
 }
 
-/* ==========================
-   UPLOAD FILE
-========================== */
+/* FILE */
 
-fileInput.addEventListener(
-  "change",
+fileInput.onchange =
   async () => {
 
     if (
@@ -795,27 +631,26 @@ fileInput.addEventListener(
       return;
     }
 
-    const file =
-      fileInput.files[0];
-
     const formData =
       new FormData();
 
     formData.append(
       "file",
-      file
+      fileInput.files[0]
     );
 
     try {
 
       const response =
         await fetch(
-          `/api/upload/${encodeURIComponent(
+          `/api/files/${encodeURIComponent(
             currentDialog.id
           )}`,
           {
-            method: "POST",
-            body: formData
+            method:
+              "POST",
+            body:
+              formData
           }
         );
 
@@ -828,172 +663,49 @@ fileInput.addEventListener(
         );
       }
 
-      appendMessage(
+      addMessage(
         data.message
       );
 
-      scrollMessages();
+      scrollBottom();
 
     } catch (error) {
 
       alert(
-        error.message ||
-        "فشل رفع الملف"
+        error.message
       );
 
     } finally {
 
-      fileInput.value = "";
+      fileInput.value =
+        "";
     }
+  };
 
-  }
-);
+/* SETTINGS */
 
-/* ==========================
-   SEARCH
-========================== */
-
-let searchTimer;
-
-searchInput.addEventListener(
-  "input",
+document
+  .getElementById(
+    "settingsBtn"
+  )
+  .onclick =
   () => {
-
-    clearTimeout(
-      searchTimer
-    );
-
-    const query =
-      searchInput.value.trim();
-
-    if (!query) {
-
-      searchResults.classList.add(
-        "hidden"
-      );
-
-      return;
-    }
-
-    searchTimer =
-      setTimeout(
-        () =>
-          searchTelegram(
-            query
-          ),
-        400
-      );
-
-  }
-);
-
-async function searchTelegram(
-  query
-) {
-
-  try {
-
-    const data =
-      await api(
-        `/api/search?q=${encodeURIComponent(
-          query
-        )}`
-      );
-
-    if (!data.success) {
-      return;
-    }
-
-    searchResults.innerHTML =
-      data.results.map(
-        result =>
-          `
-          <div
-          class="search-result"
-          data-id="${result.id}"
-          data-name="${escapeHtml(
-            result.name
-          )}"
-          >
-
-            <strong>
-              ${escapeHtml(
-                result.name
-              )}
-            </strong>
-
-            <br>
-
-            <small>
-              ${
-                result.username
-                  ? "@" +
-                    escapeHtml(
-                      result.username
-                    )
-                  : ""
-              }
-            </small>
-
-          </div>
-          `
-      ).join("");
-
-    searchResults.classList.remove(
-      "hidden"
-    );
 
     document
-      .querySelectorAll(
-        ".search-result"
+      .getElementById(
+        "profileInfo"
       )
-      .forEach(
-        element => {
-
-          element.addEventListener(
-            "click",
-            () => {
-
-              searchResults.classList.add(
-                "hidden"
-              );
-
-              searchInput.value = "";
-
-              openChat(
-                element.dataset.id,
-                element.dataset.name
-              );
-            }
-          );
-        }
-      );
-
-  } catch {}
-}
-
-/* ==========================
-   PROFILE
-========================== */
-
-profileBtn.addEventListener(
-  "click",
-  () => {
-
-    const name =
-      `${currentUser.firstName || ""} ${
-        currentUser.lastName || ""
-      }`.trim();
-
-    profileContent.innerHTML =
+      .innerHTML =
       `
-      <p><strong>الاسم:</strong> ${
-        escapeHtml(name)
-      }</p>
+      <p>
+        <strong>الاسم:</strong>
+        ${escapeHtml(
+          currentUser.name
+        )}
+      </p>
 
-      <br>
-
-      <p><strong>المعرف:</strong>
+      <p>
+        <strong>المعرف:</strong>
         ${
           currentUser.username
             ? "@" +
@@ -1003,72 +715,63 @@ profileBtn.addEventListener(
             : "لا يوجد"
         }
       </p>
-
-      <br>
-
-      <p><strong>رقم الهاتف:</strong>
-        ${
-          escapeHtml(
-            currentUser.phone ||
-            ""
-          )
-        }
-      </p>
       `;
 
-    profileModal.classList.remove(
+    settingsModal.classList.remove(
       "hidden"
     );
-  }
-);
+  };
 
-closeProfileBtn.addEventListener(
-  "click",
+document
+  .getElementById(
+    "closeSettings"
+  )
+  .onclick =
+  () =>
+    settingsModal.classList.add(
+      "hidden"
+    );
+
+document
+  .getElementById(
+    "darkModeBtn"
+  )
+  .onclick =
   () => {
 
-    profileModal.classList.add(
-      "hidden"
+    document.body.classList.toggle(
+      "dark"
     );
+  };
 
-  }
-);
-
-/* ==========================
-   LOGOUT
-========================== */
-
-logoutBtn.addEventListener(
-  "click",
+document
+  .getElementById(
+    "logoutBtn"
+  )
+  .onclick =
   async () => {
 
-    await api(
+    await request(
       "/api/logout",
       {
-        method: "POST"
+        method:
+          "POST"
       }
     );
 
-    currentUser = null;
-
-    currentDialog = null;
-
-    profileModal.classList.add(
+    settingsModal.classList.add(
       "hidden"
     );
 
     showLogin();
-
-  }
-);
-
-/* ==========================
-   ESCAPE HTML
-========================== */
+  };
 
 function escapeHtml(text) {
 
   const div =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
   div.textContent =
     text || "";
@@ -1076,27 +779,27 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-/* ==========================
-   CHECK LOGIN
-========================== */
+/* CHECK LOGIN */
 
-async function init() {
+(async () => {
 
   try {
 
     const data =
-      await api("/api/me");
+      await request(
+        "/api/me"
+      );
 
-    if (data.authenticated) {
+    if (
+      data.authenticated
+    ) {
 
       currentUser =
         data.user;
 
       showApp();
 
-      renderUser();
-
-      await loadDialogs();
+      loadDialogs();
 
     } else {
 
@@ -1107,6 +810,5 @@ async function init() {
 
     showLogin();
   }
-}
 
-init();
+})();
