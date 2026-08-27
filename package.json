@@ -1,18 +1,16 @@
 {
-  "name": "my-telegram-web",
-  "version": "1.0.0",
-  "description": "My Telegram Web Client",
+  "name": "telegram-web-client",
+  "version": "2.0.0",
+  "description": "Full Telegram Web Client",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "connect-mongo": "^5.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
-    "mongodb": "^6.13.0",
     "multer": "^1.4.5-lts.1",
     "telegram": "^2.26.22"
   }
