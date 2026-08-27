@@ -1,0 +1,18 @@
+{
+  "name": "telegram-web",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "موقع ويب تلجرام متكامل",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "dotenv": "^16.3.1",
+    "multer": "^1.4.5-lts.1",
+    "telegram": "^2.16.7",
+    "crypto": "^1.0.1"
+  }
+}
