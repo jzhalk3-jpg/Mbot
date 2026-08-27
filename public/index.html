@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تلجرام التلي</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- شاشة تسجيل الدخول -->
+        <div id="login-screen" class="screen active">
+            <div class="login-box">
+                <h1>تلجرام التلي</h1>
+                <p>سجل دخولك لحسابك</p>
+                <input type="text" id="phone-input" placeholder="رقم الهاتف (مثال: 966501234567)" />
+                <button id="send-code-btn">إرسال رمز التحقق</button>
+                <div id="code-section" style="display:none;">
+                    <input type="text" id="code-input" placeholder="رمز التحقق" />
+                    <button id="verify-code-btn">تحقق</button>
+                </div>
+                <div id="password-section" style="display:none;">
+                    <input type="password" id="password-input" placeholder="كلمة المرور (2FA)" />
+                    <button id="verify-password-btn">إدخال</button>
+                </div>
+                <div id="login-error" class="error"></div>
+            </div>
+        </div>
+
+        <!-- الشاشة الرئيسية -->
+        <div id="main-screen" class="screen">
+            <div class="sidebar">
+                <div class="header">
+                    <h2>تلجرام التلي</h2>
+                    <button id="logout-btn">خروج</button>
+                </div>
+                <div class="account-switcher">
+                    <select id="account-select"></select>
+                    <button id="switch-account-btn">تبديل</button>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="بحث..." />
+                </div>
+                <div id="dialogs-list" class="dialogs"></div>
+            </div>
+            <div class="chat-area">
+                <div id="chat-header" class="chat-header"></div>
+                <div id="messages-container" class="messages"></div>
+                <div class="input-area">
+                    <input type="text" id="message-input" placeholder="اكتب رسالة..." />
+                    <button id="send-btn">إرسال</button>
+                    <input type="file" id="file-input" style="display:none;" />
+                    <button id="file-btn">📎</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
