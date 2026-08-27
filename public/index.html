@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0"
+/>
+
+<title>Telegram Web</title>
+
+<link
+rel="stylesheet"
+href="/style.css"
+/>
+
+</head>
+
+<body>
+
+<div id="loginPage" class="login-page">
+
+    <div class="login-card">
+
+        <div class="logo">
+            <div class="logo-icon">
+                ✈
+            </div>
+        </div>
+
+        <h1>
+            Telegram
+        </h1>
+
+        <p class="subtitle">
+            استخدم رقم هاتفك للوصول إلى حسابك
+        </p>
+
+        <div id="phoneStep">
+
+            <label>
+                رقم الهاتف
+            </label>
+
+            <input
+            id="phoneInput"
+            type="tel"
+            placeholder="+967XXXXXXXXX"
+            />
+
+            <button
+            id="sendCodeBtn"
+            >
+                متابعة
+            </button>
+
+        </div>
+
+        <div
+        id="codeStep"
+        class="hidden"
+        >
+
+            <p>
+                أدخل رمز التحقق
+            </p>
+
+            <input
+            id="codeInput"
+            type="text"
+            inputmode="numeric"
+            placeholder="12345"
+            />
+
+            <button
+            id="verifyCodeBtn"
+            >
+                تسجيل الدخول
+            </button>
+
+            <button
+            id="backBtn"
+            class="text-btn"
+            >
+                تغيير الرقم
+            </button>
+
+        </div>
+
+        <div
+        id="passwordStep"
+        class="hidden"
+        >
+
+            <p>
+                هذا الحساب محمي بالتحقق بخطوتين
+            </p>
+
+            <input
+            id="passwordInput"
+            type="password"
+            placeholder="كلمة المرور"
+            />
+
+            <button
+            id="verifyPasswordBtn"
+            >
+                متابعة
+            </button>
+
+        </div>
+
+        <div
+        id="status"
+        class="status"
+        ></div>
+
+    </div>
+
+</div>
+
+
+<div
+id="appPage"
+class="app hidden"
+>
+
+    <aside class="sidebar">
+
+        <div class="sidebar-top">
+
+            <button
+            id="profileBtn"
+            class="icon-btn"
+            >
+                ☰
+            </button>
+
+            <div class="search-wrapper">
+
+                <input
+                id="searchInput"
+                type="text"
+                placeholder="بحث"
+                />
+
+            </div>
+
+        </div>
+
+        <div
+        id="userBox"
+        class="user-box"
+        ></div>
+
+        <div
+        id="searchResults"
+        class="search-results hidden"
+        ></div>
+
+        <div
+        id="dialogsList"
+        class="dialogs-list"
+        ></div>
+
+    </aside>
+
+
+    <main class="chat">
+
+        <div
+        id="chatEmpty"
+        class="chat-empty"
+        >
+
+            <div class="empty-logo">
+                ✈
+            </div>
+
+            <h2>
+                Telegram Web
+            </h2>
+
+            <p>
+                اختر محادثة لبدء المراسلة
+            </p>
+
+        </div>
+
+
+        <div
+        id="chatWindow"
+        class="chat-window hidden"
+        >
+
+            <header
+            id="chatHeader"
+            class="chat-header"
+            ></header>
+
+            <div
+            id="messages"
+            class="messages"
+            ></div>
+
+            <div class="composer">
+
+                <label
+                for="fileInput"
+                class="file-button"
+                >
+                    📎
+                </label>
+
+                <input
+                id="fileInput"
+                type="file"
+                hidden
+                />
+
+                <textarea
+                id="messageInput"
+                placeholder="اكتب رسالة..."
+                rows="1"
+                ></textarea>
+
+                <button
+                id="sendMessageBtn"
+                class="send-button"
+                >
+                    ➤
+                </button>
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<div
+id="profileModal"
+class="modal hidden"
+>
+
+    <div class="modal-box">
+
+        <button
+        id="closeProfileBtn"
+        class="close-btn"
+        >
+            ×
+        </button>
+
+        <h2>
+            حسابي
+        </h2>
+
+        <div
+        id="profileContent"
+        ></div>
+
+        <button
+        id="logoutBtn"
+        class="logout-btn"
+        >
+            تسجيل الخروج
+        </button>
+
+    </div>
+
+</div>
+
+<script src="/app.js"></script>
+
+</body>
+
+</html>
