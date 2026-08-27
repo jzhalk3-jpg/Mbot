@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Messenger Pro</title>
+<style>
+:root{--bg:#0e1621;--panel:#17212b;--panel2:#1f2c38;--card:#22303c;--accent:#2aabee;--text:#fff;--muted:#9fb0bf;--border:#2a3946;--danger:#e25555}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Tahoma,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+button,input,textarea,select{font:inherit}button{cursor:pointer;border:0}.app{display:grid;grid-template-columns:72px 340px 1fr;height:100vh}
+.sidebar{background:#101923;border-left:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 8px;gap:10px}
+.logo{width:46px;height:46px;border-radius:50%;background:var(--accent);display:grid;place-items:center;font-size:22px;font-weight:bold}
+.navbtn{width:48px;height:48px;border-radius:14px;background:transparent;color:var(--muted);font-size:20px}.navbtn:hover,.navbtn.active{background:var(--panel2);color:#fff}.spacer{flex:1}
+.chatlist{background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;min-width:0}
+.topbar{padding:14px;border-bottom:1px solid var(--border);display:flex;gap:8px}.search{flex:1;background:#22303c;border:1px solid var(--border);border-radius:12px;color:#fff;padding:12px}
+.icon{background:var(--card);color:#fff;border-radius:10px;padding:10px}.tabs{display:flex;border-bottom:1px solid var(--border)}.tab{flex:1;padding:10px;background:transparent;color:var(--muted)}.tab.active{color:#fff;border-bottom:2px solid var(--accent)}
+.chats{overflow:auto}.chat{display:flex;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1b2731}.chat:hover,.chat.active{background:var(--panel2)}
+.avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2aabee,#7259ff);display:grid;place-items:center;font-weight:bold;flex:none}.cinfo{min-width:0;flex:1}.crow{display:flex;justify-content:space-between;gap:8px}.name{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.preview,.muted{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.badge{background:var(--accent);border-radius:20px;padding:2px 7px;font-size:12px}
+.main{display:flex;flex-direction:column;min-width:0}.header{height:74px;border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:12px;background:var(--panel)}
+.header .title{font-weight:bold}.status{font-size:12px;color:#69d88d}.actions{margin-right:auto;display:flex;gap:6px}
+.messages{flex:1;overflow:auto;padding:22px;background:radial-gradient(circle at center,#172430,#0e1621 75%);display:flex;flex-direction:column;gap:10px}
+.day{text-align:center;color:var(--muted);font-size:12px}.msg{max-width:min(75%,650px);padding:9px 12px;border-radius:14px;background:var(--card);align-self:flex-start;box-shadow:0 2px 10px #0002}.msg.me{align-self:flex-end;background:#2b5278}.meta{font-size:11px;color:#b9c9d6;text-align:left;margin-top:4px}.reply{font-size:12px;color:#9bd9ff;border-right:3px solid var(--accent);padding-right:7px;margin-bottom:5px}.composer{padding:12px;border-top:1px solid var(--border);background:var(--panel);display:flex;gap:8px;align-items:end}.composer textarea{flex:1;resize:none;max-height:120px;min-height:46px;border:1px solid var(--border);background:var(--card);border-radius:14px;color:#fff;padding:12px}.send{background:var(--accent);color:#fff;border-radius:50%;width:46px;height:46px;font-size:18px}
+.panel{display:none;position:absolute;inset:0;background:var(--bg);z-index:10;overflow:auto;padding:25px}.panel.show{display:block}.panel h2{margin-top:0}.section{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin:12px 0}.field{width:100%;margin:6px 0 12px;padding:11px;border-radius:10px;background:#22303c;border:1px solid var(--border);color:#fff}.row{display:flex;gap:10px;align-items:center}.primary{background:var(--accent);color:#fff;border-radius:10px;padding:11px 16px}.danger{background:var(--danger);color:#fff;border-radius:10px;padding:10px 14px}
+.modal{position:fixed;inset:0;background:#0008;display:none;place-items:center;z-index:30}.modal.show{display:grid}.modalbox{width:min(520px,92vw);max-height:85vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:20px}
+.context{position:fixed;display:none;z-index:40;background:#22303c;border:1px solid var(--border);border-radius:12px;padding:6px;box-shadow:0 10px 40px #0007}.context button{display:block;width:100%;text-align:right;background:transparent;color:#fff;padding:10px 18px;border-radius:8px}.context button:hover{background:#2d4150}
+.empty{padding:30px;text-align:center;color:var(--muted)}body.light{--bg:#edf2f5;--panel:#fff;--panel2:#eef4f7;--card:#f3f6f8;--text:#17212b;--muted:#61707d;--border:#d9e1e6}.hidden{display:none!important}
+@media(max-width:800px){.app{grid-template-columns:58px 1fr}.chatlist{display:none}.chatlist.mobile{display:flex;position:fixed;inset:0 58px 0 0;z-index:8}.sidebar{z-index:9}.messages{padding:12px}.msg{max-width:90%}.header{padding:8px}.navbtn{width:42px;height:42px}}
+</style>
+</head>
+<body>
+<div class="app">
+ <aside class="sidebar">
+  <div class="logo">✈</div>
+  <button class="navbtn active" data-view="chats">💬</button>
+  <button class="navbtn" data-view="contacts">👥</button>
+  <button class="navbtn" data-view="groups">👨‍👩‍👧</button>
+  <button class="navbtn" data-view="channels">📢</button>
+  <button class="navbtn" data-view="saved">🔖</button>
+  <button class="navbtn" data-view="archive">🗄️</button>
+  <div class="spacer"></div>
+  <button class="navbtn" data-view="settings">⚙️</button>
+ </aside>
+
+ <section class="chatlist" id="chatList">
+  <div class="topbar"><input class="search" id="search" placeholder="بحث في المحادثات والرسائل..."><button class="icon" id="newBtn">＋</button></div>
+  <div class="tabs"><button class="tab active" data-filter="all">الكل</button><button class="tab" data-filter="unread">غير مقروء</button><button class="tab" data-filter="pinned">مثبت</button></div>
+  <div class="chats" id="chats"></div>
+ </section>
+
+ <main class="main">
+  <div class="header"><div class="avatar" id="headAvatar">R</div><div><div class="title" id="headTitle">ResearchNetwork Team</div><div class="status" id="headStatus">● متصل الآن</div></div><div class="actions"><button class="icon" id="searchMsg">⌕</button><button class="icon" id="more">⋮</button></div></div>
+  <div class="messages" id="messages"></div>
+  <div class="composer"><button class="icon" id="attach">📎</button><button class="icon" id="emoji">😊</button><textarea id="input" placeholder="اكتب رسالة..." rows="1"></textarea><button class="send" id="send">➤</button></div>
+ </main>
+</div>
+
+<div class="panel" id="panel"></div>
+<div class="modal" id="modal"><div class="modalbox" id="modalContent"></div></div>
+<div class="context" id="context"></div>
+<input type="file" id="fileInput" class="hidden" multiple>
+
+<script>
+const state={
+ user:{name:"ResearchNetwork",username:"@researchnetwork",bio:"منصة الأبحاث والتعاون العلمي",lang:"ar",dark:true},
+ current:"1",filter:"all",reply:null,
+ chats:[
+  {id:"1",name:"ResearchNetwork Team",type:"private",avatar:"R",status:"متصل الآن",pinned:true,muted:false,unread:0,messages:[
+   {id:"m1",from:"them",text:"مرحبًا بك في تطبيق المراسلة التجريبي 👋",time:"10:20"},
+   {id:"m2",from:"me",text:"أهلًا، التطبيق جاهز للعمل محليًا.",time:"10:21"}
+  ]},
+  {id:"2",name:"فريق البحث الطبي",type:"group",avatar:"ط",status:"24 عضوًا",unread:3,messages:[{id:"m3",from:"them",text:"تم رفع ملف المشروع الجديد.",time:"09:40"}]},
+  {id:"3",name:"Medical News",type:"channel",avatar:"M",status:"قناة • 12.4K مشترك",unread:0,messages:[{id:"m4",from:"them",text:"آخر الأخبار الطبية والبحثية.",time:"أمس"}]},
+  {id:"4",name:"الرسائل المحفوظة",type:"saved",avatar:"🔖",status:"ملاحظاتك الخاصة",unread:0,messages:[{id:"m5",from:"me",text:"استخدم هذه المحادثة لحفظ الملاحظات والرسائل.",time:"أمس"}]}
+ ],
+ contacts:["أحمد محمد","د. سارة علي","محمد خالد","فريق ResearchNetwork"],
+ archived:[]
+};
+function save(){localStorage.setItem("messengerPro",JSON.stringify(state))}
+function load(){let x=localStorage.getItem("messengerPro");if(x){try{Object.assign(state,JSON.parse(x))}catch(e){}}}
+load();
+
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function current(){return state.chats.find(c=>c.id===state.current)||state.chats[0]}
+function last(c){return c.messages.at(-1)?.text||"لا توجد رسائل"}
+function renderChats(){
+ const q=$("#search").value.toLowerCase();
+ let list=state.chats.filter(c=>c.name.toLowerCase().includes(q)||last(c).toLowerCase().includes(q));
+ if(state.filter==="unread")list=list.filter(c=>c.unread>0); if(state.filter==="pinned")list=list.filter(c=>c.pinned);
+ list.sort((a,b)=>Number(b.pinned)-Number(a.pinned));
+ $("#chats").innerHTML=list.map(c=>`<div class="chat ${c.id===state.current?"active":""}" data-id="${c.id}">
+ <div class="avatar">${esc(c.avatar)}</div><div class="cinfo"><div class="crow"><span class="name">${esc(c.name)} ${c.pinned?"📌":""}</span><span class="muted">${c.messages.at(-1)?.time||""}</span></div>
+ <div class="crow"><span class="preview">${esc(last(c))}</span>${c.unread?`<span class="badge">${c.unread}</span>`:""}</div></div></div>`).join("")||'<div class="empty">لا توجد نتائج</div>';
+ $$("#chats .chat").forEach(x=>x.onclick=()=>{state.current=x.dataset.id;current().unread=0;render();save(); if(innerWidth<800)$("#chatList").classList.remove("mobile")});
+}
+function renderMessages(){
+ const c=current(); $("#headTitle").textContent=c.name;$("#headStatus").textContent=c.status;$("#headAvatar").textContent=c.avatar;
+ $("#messages").innerHTML='<div class="day">اليوم</div>'+c.messages.map(m=>`<div class="msg ${m.from==="me"?"me":""}" data-mid="${m.id}">
+ ${m.reply?`<div class="reply">${esc(m.reply)}</div>`:""}<div>${m.file?`📎 <b>${esc(m.file)}</b><br>`:""}${esc(m.text)}</div><div class="meta">${m.time} ${m.from==="me"?"✓✓":""}</div></div>`).join("");
+ $("#messages").scrollTop=$("#messages").scrollHeight;
+ $$("#messages .msg").forEach(el=>el.oncontextmenu=e=>{e.preventDefault();openContext(e.clientX,e.clientY,el.dataset.mid)});
+}
+function render(){renderChats();renderMessages()}
+function sendMessage(){
+ const text=$("#input").value.trim(); if(!text)return;
+ const c=current(), m={id:"m"+Date.now(),from:"me",text,time:new Date().toLocaleTimeString("ar",{hour:"2-digit",minute:"2-digit"}),reply:state.reply};
+ c.messages.push(m);state.reply=null;$("#input").value="";renderMessages();renderChats();save();
+}
+function openContext(x,y,id){
+ const m=current().messages.find(a=>a.id===id), c=$("#context");c.style.display="block";c.style.left=x+"px";c.style.top=y+"px";
+ c.innerHTML=`<button data-a="reply">↩️ رد</button><button data-a="copy">📋 نسخ</button><button data-a="edit">✏️ تعديل</button><button data-a="delete">🗑️ حذف</button><button data-a="forward">➡️ إعادة توجيه</button>`;
+ c.querySelectorAll("button").forEach(b=>b.onclick=()=>{let a=b.dataset.a;c.style.display="none";
+ if(a==="reply"){state.reply=m.text;$("#input").placeholder="الرد على: "+m.text.slice(0,30);$("#input").focus()}
+ if(a==="copy")navigator.clipboard?.writeText(m.text);
+ if(a==="edit"&&m.from==="me"){let t=prompt("تعديل الرسالة",m.text);if(t!==null){m.text=t;save();renderMessages()}}
+ if(a==="delete"){current().messages=current().messages.filter(z=>z.id!==id);save();render()}
+ if(a==="forward")openModal(`<h2>إعادة توجيه</h2>${state.chats.filter(z=>z.id!==current().id).map(z=>`<button class="field" onclick="forwardMsg('${id}','${z.id}')">${esc(z.name)}</button>`).join("")}`);
+ });}
+document.addEventListener("click",e=>{if(!e.target.closest("#context"))$("#context").style.display="none"});
+function forwardMsg(id,to){let m=current().messages.find(x=>x.id===id),c=state.chats.find(x=>x.id===to);c.messages.push({...m,id:"m"+Date.now(),from:"me",time:"الآن"});save();closeModal()}
+window.forwardMsg=forwardMsg;
+function openModal(content){$("#modalContent").innerHTML=content;$("#modal").classList.add("show")}
+function closeModal(){$("#modal").classList.remove("show")} window.closeModal=closeModal;
+$("#modal").onclick=e=>{if(e.target.id==="modal")closeModal()};
+$("#send").onclick=sendMessage;$("#input").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage()}};
+$("#search").oninput=renderChats;
+$$(".tab").forEach(t=>t.onclick=()=>{$$(".tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");state.filter=t.dataset.filter;renderChats()});
+$("#newBtn").onclick=()=>openModal(`<h2>إنشاء جديد</h2><button class="field" onclick="createChat('private')">💬 محادثة جديدة</button><button class="field" onclick="createChat('group')">👥 مجموعة جديدة</button><button class="field" onclick="createChat('channel')">📢 قناة جديدة</button><button class="primary" onclick="closeModal()">إلغاء</button>`);
+function createChat(type){let n=prompt(type==="group"?"اسم المجموعة":type==="channel"?"اسم القناة":"اسم المستخدم");if(!n)return;let c={id:String(Date.now()),name:n,type,avatar:n[0],status:type==="group"?"1 عضو":type==="channel"?"0 مشترك":"غير متصل",unread:0,messages:[]};state.chats.unshift(c);state.current=c.id;save();closeModal();render()}window.createChat=createChat;
+$("#attach").onclick=()=>$("#fileInput").click();$("#fileInput").onchange=e=>{[...e.target.files].forEach(f=>current().messages.push({id:"m"+Date.now()+Math.random(),from:"me",text:"تم إرسال ملف",file:f.name,time:"الآن"}));save();render();e.target.value=""};
+$("#emoji").onclick=()=>$("#input").value+=" 😊 ";
+$("#searchMsg").onclick=()=>{let q=prompt("ابحث داخل المحادثة");if(q){let m=current().messages.filter(x=>x.text.includes(q));alert("عدد النتائج: "+m.length+"\n"+m.map(x=>x.text).join("\n"))}};
+$("#more").onclick=()=>openModal(`<h2>${esc(current().name)}</h2><div class="section">النوع: ${current().type}</div><button class="field" onclick="togglePin()">📌 ${current().pinned?"إلغاء التثبيت":"تثبيت المحادثة"}</button><button class="field" onclick="archiveCurrent()">🗄️ أرشفة</button><button class="danger" onclick="clearCurrent()">مسح الرسائل</button>`);
+function togglePin(){current().pinned=!current().pinned;save();closeModal();render()}window.togglePin=togglePin;
+function archiveCurrent(){let c=current();state.archived.push(c);state.chats=state.chats.filter(x=>x.id!==c.id);state.current=state.chats[0]?.id||null;save();closeModal();render()}window.archiveCurrent=archiveCurrent;
+function clearCurrent(){if(confirm("هل تريد مسح جميع الرسائل؟")){current().messages=[];save();closeModal();render()}}window.clearCurrent=clearCurrent;
+
+function viewContacts(){return `<h2>جهات الاتصال</h2><div class="section"><button class="primary" onclick="addContact()">إضافة جهة اتصال</button></div>${state.contacts.map(x=>`<div class="section row"><div class="avatar">${esc(x[0])}</div><div>${esc(x)}</div></div>`).join("")}`}
+function viewGroups(){let a=state.chats.filter(c=>c.type==="group");return `<h2>المجموعات</h2><button class="primary" onclick="createChat('group')">إنشاء مجموعة</button>${a.map(c=>`<div class="section"><b>${esc(c.name)}</b><br><span class="muted">${esc(c.status)}</span></div>`).join("")}`}
+function viewChannels(){let a=state.chats.filter(c=>c.type==="channel");return `<h2>القنوات</h2><button class="primary" onclick="createChat('channel')">إنشاء قناة</button>${a.map(c=>`<div class="section"><b>${esc(c.name)}</b><br><span class="muted">${esc(c.status)}</span></div>`).join("")}`}
+function viewSaved(){state.current=state.chats.find(c=>c.type==="saved")?.id||state.current;$("#panel").classList.remove("show");render();return ""}
+function viewArchive(){return `<h2>المؤرشفة</h2>${state.archived.map(c=>`<div class="section"><b>${esc(c.name)}</b><button class="primary" style="float:left" onclick="restoreArchive('${c.id}')">استعادة</button></div>`).join("")||'<div class="empty">لا توجد محادثات مؤرشفة</div>'}`}
+function viewSettings(){return `<h2>الإعدادات</h2>
+<div class="section"><h3>الحساب</h3><input id="sname" class="field" value="${esc(state.user.name)}"><input id="suser" class="field" value="${esc(state.user.username)}"><textarea id="sbio" class="field">${esc(state.user.bio)}</textarea><button class="primary" onclick="saveProfile()">حفظ الملف الشخصي</button></div>
+<div class="section"><h3>المظهر واللغة</h3><button class="field" onclick="toggleTheme()">🌓 تبديل الوضع الليلي/النهاري</button><select id="lang" class="field"><option value="ar" ${state.user.lang==="ar"?"selected":""}>العربية</option><option value="en" ${state.user.lang==="en"?"selected":""}>English</option></select><button class="primary" onclick="saveLang()">حفظ اللغة</button></div>
+<div class="section"><h3>الخصوصية والأمان</h3><button class="field" onclick="alert('يمكنك من هنا لاحقًا ربط Backend لنظام OTP والجلسات والأجهزة.')">التحقق بخطوتين والجلسات</button><button class="field" onclick="alert('إعدادات الخصوصية: رقم الهاتف، آخر ظهور، الصورة الشخصية، المجموعات، الحظر.')">إعدادات الخصوصية</button></div>
+<div class="section"><h3>البيانات</h3><button class="field" onclick="exportData()">تصدير البيانات JSON</button><button class="danger" onclick="resetApp()">إعادة ضبط التطبيق</button></div>`}
+function openPanel(view){if(view==="saved"){viewSaved();return}let content={contacts:viewContacts,groups:viewGroups,channels:viewChannels,archive:viewArchive,settings:viewSettings}[view];if(!content)return;$("#panel").innerHTML=`<button class="icon" onclick="closePanel()">← رجوع</button>${content()}`;$("#panel").classList.add("show")}
+function closePanel(){$("#panel").classList.remove("show")}window.closePanel=closePanel;
+$$(".navbtn").forEach(b=>b.onclick=()=>{ $$(".navbtn").forEach(x=>x.classList.remove("active"));b.classList.add("active");let v=b.dataset.view;if(v==="chats"){$("#panel").classList.remove("show");if(innerWidth<800)$("#chatList").classList.toggle("mobile")}else openPanel(v)});
+function addContact(){let n=prompt("اسم جهة الاتصال");if(n){state.contacts.push(n);save();openPanel("contacts")}}window.addContact=addContact;
+function restoreArchive(id){let i=state.archived.findIndex(x=>x.id===id);state.chats.push(state.archived.splice(i,1)[0]);save();openPanel("archive")}window.restoreArchive=restoreArchive;
+function saveProfile(){state.user.name=$("#sname").value;state.user.username=$("#suser").value;state.user.bio=$("#sbio").value;save();alert("تم الحفظ")}
+window.saveProfile=saveProfile;
+function toggleTheme(){document.body.classList.toggle("light");state.user.dark=!document.body.classList.contains("light");save()}window.toggleTheme=toggleTheme;
+function saveLang(){let l=$("#lang").value;state.user.lang=l;document.documentElement.lang=l;document.documentElement.dir=l==="ar"?"rtl":"ltr";save();alert("تم تغيير اللغة. تمت إضافة بنية RTL/LTR؛ يمكن ربط ملف ترجمة كامل لاحقًا.")}window.saveLang=saveLang;
+function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="messenger-backup.json";a.click()}window.exportData=exportData;
+function resetApp(){if(confirm("سيتم حذف البيانات المحلية")){localStorage.removeItem("messengerPro");location.reload()}}window.resetApp=resetApp;
+if(!state.user.dark)document.body.classList.add("light");render();
+</script>
+</body>
+</html>
